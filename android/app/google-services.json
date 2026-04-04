@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "794959026077",
+    "project_id": "mediassure218",
+    "storage_bucket": "mediassure218.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:794959026077:android:e2edec951dffbabe394174",
+        "android_client_info": {
+          "package_name": "com.example.mediassure"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCNS3zW4pDQX3-a6bxeoG5PBylsGijVeHM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
