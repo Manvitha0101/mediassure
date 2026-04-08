@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'app_theme.dart';
 import 'dashboard_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -22,15 +23,66 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _onLogin() async {
-    setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 1200));
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const DashboardScreen()),
-    );
-  }
+ void _onLogin() async {
+final email = _emailController.text.trim();
+final password = _passwordController.text.trim();
+
+// ✅ Validation
+if (email.isEmpty || password.isEmpty) {
+ScaffoldMessenger.of(context).showSnackBar(
+const SnackBar(content: Text("Email and Password cannot be empty")),
+);
+return;
+}
+
+setState(() => _isLoading = true);
+
+try {
+final userCredential = await FirebaseAuth.instance
+.signInWithEmailAndPassword(
+email: email,
+password: password,
+);
+
+
+if (!mounted) return;
+
+if (userCredential.user != null) {
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (_) => const DashboardScreen(),
+    ),
+  );
+}
+
+
+} on FirebaseAuthException catch (e) {
+String message = "Login failed";
+
+
+if (e.code == 'user-not-found') {
+  message = "No user found for this email";
+} else if (e.code == 'wrong-password') {
+  message = "Incorrect password";
+} else if (e.code == 'invalid-email') {
+  message = "Invalid email format";
+}
+
+ScaffoldMessenger.of(context)
+    .showSnackBar(SnackBar(content: Text(message)));
+
+
+} catch (e) {
+ScaffoldMessenger.of(context)
+.showSnackBar(const SnackBar(content: Text("Something went wrong")));
+}
+
+if (mounted) {
+setState(() => _isLoading = false);
+}
+}
+
 
   @override
   Widget build(BuildContext context) {
