@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import '../models/medicine_model.dart';
 import '../services/medicine_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'add_medicine_screen.dart';
 
 class MedicineListScreen extends StatelessWidget {
@@ -13,6 +14,7 @@ class MedicineListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final medicineService = MedicineService();
+    final patientId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
@@ -33,7 +35,7 @@ class MedicineListScreen extends StatelessWidget {
         ),
       ),
       body: StreamBuilder<List<Medicine>>(
-        stream: medicineService.getMedicinesStream(),
+        stream: medicineService.getMedicinesStream(patientId),
         builder: (context, snapshot) {
           // Loading state
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -99,7 +101,7 @@ class MedicineListScreen extends StatelessWidget {
                     ),
                   );
                   if (confirm == true) {
-                    await medicineService.deleteMedicine(med.id);
+                    await medicineService.deleteMedicine(patientId, med.id);
                   }
                 },
               );
@@ -159,9 +161,7 @@ class _MedicineCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text('Dosage: ${medicine.dosage}',
                 style: const TextStyle(fontSize: 13)),
-            Text('Frequency: ${medicine.frequency}',
-                style: const TextStyle(fontSize: 13)),
-            Text('Schedule: ${medicine.timeSchedule.join(", ")}',
+            Text('Schedule: ${medicine.timings.join(", ")}',
                 style:
                     const TextStyle(fontSize: 13, color: Color(0xFF1A73E8))),
           ],

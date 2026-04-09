@@ -1,42 +1,44 @@
 // models/medicine_model.dart
-// Represents a single medicine entry stored in Firestore
+// Represents a single medicine entry stored in Firestore under patients/{patientId}/medicines
 
 class Medicine {
   final String id;
   final String name;
   final String dosage;
-  final String frequency;
-  final List<String> timeSchedule; // e.g. ["morning", "night"]
+  final List<String> timings; // e.g., ["08:00 AM", "08:00 PM"]
+  final DateTime startDate;
+  final DateTime endDate;
   final String? imageUrl;
 
   Medicine({
     required this.id,
     required this.name,
     required this.dosage,
-    required this.frequency,
-    required this.timeSchedule,
+    required this.timings,
+    required this.startDate,
+    required this.endDate,
     this.imageUrl,
   });
 
-  // Convert to map for Firestore
   Map<String, dynamic> toMap() {
     return {
       'name': name,
       'dosage': dosage,
-      'frequency': frequency,
-      'timeSchedule': timeSchedule,
+      'timings': timings,
+      'startDate': startDate.toIso8601String(),
+      'endDate': endDate.toIso8601String(),
       'imageUrl': imageUrl,
     };
   }
 
-  // Create from Firestore document
   factory Medicine.fromMap(String id, Map<String, dynamic> map) {
     return Medicine(
       id: id,
       name: map['name'] ?? '',
       dosage: map['dosage'] ?? '',
-      frequency: map['frequency'] ?? '',
-      timeSchedule: List<String>.from(map['timeSchedule'] ?? []),
+      timings: List<String>.from(map['timings'] ?? []),
+      startDate: map['startDate'] != null ? DateTime.parse(map['startDate']) : DateTime.now(),
+      endDate: map['endDate'] != null ? DateTime.parse(map['endDate']) : DateTime.now().add(const Duration(days: 30)),
       imageUrl: map['imageUrl'],
     );
   }

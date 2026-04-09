@@ -42,7 +42,7 @@ Widget build(BuildContext context) {
 return MaterialApp(
 title: 'Mediassure',
 debugShowCheckedModeBanner: false,
-theme: AppTheme.theme,
+theme: AppTheme.light,
 home: const SplashScreen(),
 );
 }

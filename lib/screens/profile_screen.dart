@@ -15,24 +15,28 @@ class ProfileScreen extends StatelessWidget {
               onBack: () => Navigator.of(context).pop(),
             ),
           ),
-          SliverToBoxAdapter(
+
+          const SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-              child: SectionHeader(title: 'Health Details'),
+              padding: EdgeInsets.fromLTRB(24, 24, 24, 0),
+              child: Text("Health Details", style: AppTextStyles.headingMedium),
             ),
           ),
+
           const SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(24, 14, 24, 0),
               child: _HealthDetailsGrid(),
             ),
           ),
-          SliverToBoxAdapter(
+
+          const SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
-              child: SectionHeader(title: 'My Health'),
+              padding: EdgeInsets.fromLTRB(24, 28, 24, 0),
+              child: Text("My Health", style: AppTextStyles.headingMedium),
             ),
           ),
+
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(24, 14, 24, 32),
@@ -55,9 +59,7 @@ class _ProfileHeader extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.navy, Color(0xFF1A3A5C)],
+          colors: [AppColors.primary, AppColors.accent], // ✅ FIXED
         ),
         borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(36),
@@ -72,39 +74,12 @@ class _ProfileHeader extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  GestureDetector(
-                    onTap: onBack,
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                    ),
+                  IconButton(
+                    onPressed: onBack,
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
                   ),
                   const Spacer(),
-                  GestureDetector(
-                    onTap: () {},
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.edit_outlined,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                    ),
-                  ),
+                  const Icon(Icons.edit, color: Colors.white),
                 ],
               ),
               const SizedBox(height: 24),
@@ -120,7 +95,7 @@ class _ProfileHeader extends StatelessWidget {
               Text(
                 'arjun.kapoor@gmail.com',
                 style: AppTextStyles.bodyMedium.copyWith(
-                  color: Colors.white.withOpacity(0.55),
+                  color: Colors.white70,
                 ),
               ),
             ],
@@ -144,15 +119,9 @@ class _ProfileAvatar extends StatelessWidget {
           height: 90,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [Color(0xFF0ABFBC), Color(0xFF087F7D)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+              colors: [AppColors.accent, AppColors.primary],
             ),
             shape: BoxShape.circle,
-            border: Border.all(
-              color: Colors.white.withOpacity(0.2),
-              width: 3,
-            ),
           ),
           child: const Center(
             child: Text(
@@ -160,7 +129,7 @@ class _ProfileAvatar extends StatelessWidget {
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 30,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
@@ -168,16 +137,11 @@ class _ProfileAvatar extends StatelessWidget {
         Container(
           width: 26,
           height: 26,
-          decoration: BoxDecoration(
-            color: AppColors.teal,
+          decoration: const BoxDecoration(
+            color: AppColors.accent,
             shape: BoxShape.circle,
-            border: Border.all(color: AppColors.navy, width: 2),
           ),
-          child: const Icon(
-            Icons.camera_alt_rounded,
-            color: Colors.white,
-            size: 12,
-          ),
+          child: const Icon(Icons.camera_alt, size: 12, color: Colors.white),
         ),
       ],
     );
@@ -187,175 +151,70 @@ class _ProfileAvatar extends StatelessWidget {
 class _HealthDetailsGrid extends StatelessWidget {
   const _HealthDetailsGrid();
 
-  static const List<_DetailItem> _items = [
-    _DetailItem(label: 'Age', value: '28 yrs', icon: Icons.cake_outlined),
-    _DetailItem(
-        label: 'Blood Group', value: 'O+', icon: Icons.opacity_rounded),
-    _DetailItem(label: 'Height', value: '175 cm', icon: Icons.height_rounded),
-    _DetailItem(
-        label: 'Weight',
-        value: '72 kg',
-        icon: Icons.monitor_weight_outlined),
-  ];
-
   @override
   Widget build(BuildContext context) {
-    return GridView.count(
-      crossAxisCount: 2,
+    final items = [
+      ("Age", "28 yrs", Icons.cake),
+      ("Blood", "O+", Icons.water_drop),
+      ("Height", "175 cm", Icons.height),
+      ("Weight", "72 kg", Icons.monitor_weight),
+    ];
+
+    return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 14,
-      mainAxisSpacing: 14,
-      childAspectRatio: 1.8,
-      children: _items.map((item) => _DetailTile(item: item)).toList(),
-    );
-  }
-}
-
-class _DetailItem {
-  const _DetailItem(
-      {required this.label, required this.value, required this.icon});
-  final String label;
-  final String value;
-  final IconData icon;
-}
-
-class _DetailTile extends StatelessWidget {
-  const _DetailTile({required this.item});
-
-  final _DetailItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: AppColors.tealLight,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(item.icon, color: AppColors.teal, size: 18),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
+      itemCount: items.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 14,
+        mainAxisSpacing: 14,
+        childAspectRatio: 1.8,
+      ),
+      itemBuilder: (_, i) {
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: AppDecorations.card(),
+          child: Row(
             children: [
-              Text(item.label, style: AppTextStyles.labelSmall),
-              const SizedBox(height: 2),
-              Text(
-                item.value,
-                style: AppTextStyles.bodyLarge.copyWith(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
-                ),
+              Icon(items[i].$3, color: AppColors.accent),
+              const SizedBox(width: 10),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(items[i].$1, style: AppTextStyles.bodySmall),
+                  Text(items[i].$2, style: AppTextStyles.bodyMedium),
+                ],
               ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
 
 class _ProfileMenuList extends StatelessWidget {
-  _ProfileMenuList();
-
-  final List<_MenuEntry> _entries = const [
-    _MenuEntry(
-      icon: Icons.description_outlined,
-      label: 'Medical Records',
-      subtitle: '12 documents',
-      iconBg: Color(0xFFF0F5FF),
-      iconColor: AppColors.bpBlue,
-    ),
-    _MenuEntry(
-      icon: Icons.medication_outlined,
-      label: 'Prescriptions',
-      subtitle: '3 active',
-      iconBg: Color(0xFFF3F0FF),
-      iconColor: AppColors.sleepPurple,
-    ),
-    _MenuEntry(
-      icon: Icons.notifications_outlined,
-      label: 'Notifications',
-      subtitle: '5 unread',
-      iconBg: Color(0xFFFFF0F0),
-      iconColor: AppColors.heartRed,
-    ),
-    _MenuEntry(
-      icon: Icons.lock_outline_rounded,
-      label: 'Privacy & Security',
-      subtitle: 'Manage settings',
-      iconBg: Color(0xFFE0F7F7),
-      iconColor: AppColors.teal,
-    ),
-  ];
-
   @override
   Widget build(BuildContext context) {
-    return AppCard(
-      padding: EdgeInsets.zero,
+    final items = [
+      ("Medical Records", Icons.description),
+      ("Prescriptions", Icons.medication),
+      ("Notifications", Icons.notifications),
+      ("Privacy", Icons.lock),
+    ];
+
+    return Container(
+      decoration: AppDecorations.card(),
       child: Column(
-        children: List.generate(_entries.length, (index) {
-          final isLast = index == _entries.length - 1;
-          return Column(
-            children: [
-              _MenuTile(entry: _entries[index]),
-              if (!isLast)
-                const Divider(
-                    height: 1, indent: 72, color: AppColors.divider),
-            ],
+        children: items.map((item) {
+          return ListTile(
+            leading: Icon(item.$2, color: AppColors.accent),
+            title: Text(item.$1),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
           );
-        }),
+        }).toList(),
       ),
-    );
-  }
-}
-
-class _MenuEntry {
-  const _MenuEntry({
-    required this.icon,
-    required this.label,
-    required this.subtitle,
-    required this.iconBg,
-    required this.iconColor,
-  });
-  final IconData icon;
-  final String label;
-  final String subtitle;
-  final Color iconBg;
-  final Color iconColor;
-}
-
-class _MenuTile extends StatelessWidget {
-  const _MenuTile({required this.entry});
-
-  final _MenuEntry entry;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      onTap: () {},
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-      leading: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: entry.iconBg,
-          borderRadius: BorderRadius.circular(13),
-        ),
-        child: Icon(entry.icon, color: entry.iconColor, size: 22),
-      ),
-      title: Text(entry.label, style: AppTextStyles.bodyLarge),
-      subtitle: Text(entry.subtitle, style: AppTextStyles.bodyMedium),
-      trailing: const Icon(Icons.chevron_right_rounded,
-          color: AppColors.textSecondary),
     );
   }
 }

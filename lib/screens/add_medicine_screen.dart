@@ -1,18 +1,10 @@
-// screens/add_medicine_screen.dart
-// Form to add a new medicine or edit an existing one.
-// Supports: name, dosage, frequency, time schedule, optional image
-
-import 'dart:io';
 import 'package:flutter/material.dart';
-import '../models/medicine_model.dart';
 import '../services/medicine_service.dart';
-import '../services/notification_service.dart';
-import '../services/image_picker_service.dart';
+import '../models/medicine_model.dart';
+import '../services/auth_service.dart';
 
 class AddMedicineScreen extends StatefulWidget {
-  // Pass an existing medicine for edit mode; null = add mode
   final Medicine? medicine;
-
   const AddMedicineScreen({super.key, this.medicine});
 
   @override
@@ -20,57 +12,30 @@ class AddMedicineScreen extends StatefulWidget {
 }
 
 class _AddMedicineScreenState extends State<AddMedicineScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _medicineService = MedicineService();
-  final _notificationService = NotificationService();
-  final _imagePicker = ImagePickerService();
+  final _nameController = TextEditingController();
+  final _dosageController = TextEditingController();
 
-  // Form controllers
-  late TextEditingController _nameController;
-  late TextEditingController _dosageController;
-
-  // Dropdown values
   String _selectedFrequency = 'Once daily';
-  final List<String> _frequencies = [
-    'Once daily',
-    'Twice daily',
-    'Three times daily',
-    'As needed',
-  ];
+  final List<String> _frequencies = ['Once daily', 'Twice daily', 'Thrice daily', 'Four times daily'];
 
-  // Time schedule checkboxes
-  final Map<String, bool> _schedule = {
-    'Morning': false,
-    'Afternoon': false,
-    'Night': false,
-  };
+  bool _morning = false;
+  bool _afternoon = false;
+  bool _night = false;
 
-  // Reminder time (for notification)
   TimeOfDay _reminderTime = const TimeOfDay(hour: 8, minute: 0);
 
-  // Optional medicine image
-  File? _selectedImage;
-
   bool _isLoading = false;
-  bool get _isEditMode => widget.medicine != null;
 
   @override
   void initState() {
     super.initState();
-    // Pre-fill form if editing
-    _nameController =
-        TextEditingController(text: widget.medicine?.name ?? '');
-    _dosageController =
-        TextEditingController(text: widget.medicine?.dosage ?? '');
-
-    if (_isEditMode) {
-      _selectedFrequency =
-          widget.medicine!.frequency.isNotEmpty
-              ? widget.medicine!.frequency
-              : 'Once daily';
-      for (final time in widget.medicine!.timeSchedule) {
-        if (_schedule.containsKey(time)) _schedule[time] = true;
-      }
+    if (widget.medicine != null) {
+      _nameController.text = widget.medicine!.name;
+      _dosageController.text = widget.medicine!.dosage;
+      
+      _morning = widget.medicine!.timings.contains('Morning');
+      _afternoon = widget.medicine!.timings.contains('Afternoon');
+      _night = widget.medicine!.timings.contains('Night');
     }
   }
 
@@ -81,288 +46,274 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
     super.dispose();
   }
 
-  // ── Image picker bottom sheet ───────────────────────────────────────────────
-  void _showImagePicker() {
-    showModalBottomSheet(
+  Future<void> _pickTime() async {
+    final TimeOfDay? picked = await showTimePicker(
       context: context,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Select Image Source',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.camera_alt, color: Color(0xFF1A73E8)),
-              title: const Text('Camera'),
-              onTap: () async {
-                Navigator.pop(context);
-                final file = await _imagePicker.pickFromCamera();
-                if (file != null) setState(() => _selectedImage = file);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library, color: Color(0xFF34A853)),
-              title: const Text('Gallery'),
-              onTap: () async {
-                Navigator.pop(context);
-                final file = await _imagePicker.pickFromGallery();
-                if (file != null) setState(() => _selectedImage = file);
-              },
-            ),
-          ],
-        ),
-      ),
+      initialTime: _reminderTime,
     );
+    if (picked != null && picked != _reminderTime) {
+      setState(() {
+        _reminderTime = picked;
+      });
+    }
   }
 
-  // ── Save medicine ───────────────────────────────────────────────────────────
   Future<void> _saveMedicine() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    // At least one time slot must be selected
-    final selectedTimes = _schedule.entries
-        .where((e) => e.value)
-        .map((e) => e.key)
-        .toList();
-
-    if (selectedTimes.isEmpty) {
+    if (_nameController.text.isEmpty || _dosageController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least one time slot')),
+        const SnackBar(content: Text('Please fill all required fields')),
       );
       return;
     }
 
-    setState(() => _isLoading = true);
+    if (!_morning && !_afternoon && !_night) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select at least one time schedule')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
 
     try {
-      final medicine = Medicine(
-        id: widget.medicine?.id ?? '',
+      final uid = AuthService().currentUserId;
+      if (uid == null) throw Exception("User not logged in");
+
+      List<String> timings = [];
+      if (_morning) timings.add("Morning");
+      if (_afternoon) timings.add("Afternoon");
+      if (_night) timings.add("Night");
+
+      // We add the exact picked time format as well
+      String timeString = _reminderTime.format(context);
+      if (!timings.contains(timeString)) {
+         timings.add("($timeString)");
+      }
+
+      final med = Medicine(
+        id: widget.medicine?.id ?? '', // Firestore generates this if empty
         name: _nameController.text.trim(),
         dosage: _dosageController.text.trim(),
-        frequency: _selectedFrequency,
-        timeSchedule: selectedTimes,
+        timings: timings,
+        startDate: widget.medicine?.startDate ?? DateTime.now(),
+        // Simple default of 30 days based on their requirements
+        endDate: widget.medicine?.endDate ?? DateTime.now().add(const Duration(days: 30)),
       );
 
-      if (_isEditMode) {
-        await _medicineService.updateMedicine(medicine);
+      if (widget.medicine == null) {
+        await MedicineService().addMedicine(uid, med);
       } else {
-        await _medicineService.addMedicine(medicine);
+        await MedicineService().updateMedicine(uid, med);
       }
-
-      // Schedule a daily notification for the reminder time
-      await _notificationService.scheduleDailyReminder(
-        id: medicine.name.hashCode,
-        medicineName: medicine.name,
-        hour: _reminderTime.hour,
-        minute: _reminderTime.minute,
-      );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_isEditMode
-                ? 'Medicine updated!'
-                : 'Medicine added successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
         Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Medicine added successfully!')),
+        );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: const Color(0xFFF7F8FA),
       appBar: AppBar(
-        title: Text(_isEditMode ? 'Edit Medicine' : 'Add Medicine',
-            style: const TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF1A73E8),
+        title: const Text('Add Medicine', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        backgroundColor: const Color(0xFF1E6CDB),
         foregroundColor: Colors.white,
         elevation: 0,
+        centerTitle: false,
       ),
-      body: SingleChildScrollView(
+      body: _isLoading 
+        ? const Center(child: CircularProgressIndicator())
+        : SingleChildScrollView(
         padding: const EdgeInsets.all(20),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Name field ─────────────────────────────────────────────────
-              _SectionLabel('Medicine Name'),
-              TextFormField(
-                controller: _nameController,
-                decoration: _inputDecoration('e.g. Paracetamol'),
-                validator: (v) =>
-                    v == null || v.trim().isEmpty ? 'Name is required' : null,
-              ),
-              const SizedBox(height: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildLabel('Medicine Name'),
+            _buildTextField(
+              controller: _nameController,
+              hint: 'e.g. Paracetamol',
+            ),
+            const SizedBox(height: 20),
 
-              // ── Dosage field ───────────────────────────────────────────────
-              _SectionLabel('Dosage'),
-              TextFormField(
-                controller: _dosageController,
-                decoration: _inputDecoration('e.g. 500mg'),
-                validator: (v) =>
-                    v == null || v.trim().isEmpty ? 'Dosage is required' : null,
-              ),
-              const SizedBox(height: 16),
+            _buildLabel('Dosage'),
+            _buildTextField(
+              controller: _dosageController,
+              hint: 'e.g. 500mg',
+            ),
+            const SizedBox(height: 20),
 
-              // ── Frequency dropdown ─────────────────────────────────────────
-              _SectionLabel('Frequency'),
-              DropdownButtonFormField<String>(
-                value: _selectedFrequency,
-                decoration: _inputDecoration(''),
-                items: _frequencies
-                    .map((f) => DropdownMenuItem(value: f, child: Text(f)))
-                    .toList(),
-                onChanged: (val) =>
-                    setState(() => _selectedFrequency = val!),
+            _buildLabel('Frequency'),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300),
               ),
-              const SizedBox(height: 16),
-
-              // ── Time schedule checkboxes ───────────────────────────────────
-              _SectionLabel('Time Schedule'),
-              ..._schedule.keys.map(
-                (time) => CheckboxListTile(
-                  title: Text(time),
-                  value: _schedule[time],
-                  activeColor: const Color(0xFF1A73E8),
-                  contentPadding: EdgeInsets.zero,
-                  onChanged: (val) =>
-                      setState(() => _schedule[time] = val!),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _selectedFrequency,
+                  isExpanded: true,
+                  icon: const Icon(Icons.arrow_drop_down, color: Colors.grey),
+                  items: _frequencies.map((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    );
+                  }).toList(),
+                  onChanged: (newValue) {
+                    if (newValue != null) {
+                      setState(() {
+                        _selectedFrequency = newValue;
+                      });
+                    }
+                  },
                 ),
               ),
-              const SizedBox(height: 16),
+            ),
+            const SizedBox(height: 24),
 
-              // ── Reminder time picker ───────────────────────────────────────
-              _SectionLabel('Reminder Time'),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.alarm, color: Color(0xFF1A73E8)),
-                title: Text(
-                  _reminderTime.format(context),
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                subtitle: const Text('Tap to change reminder time'),
-                onTap: () async {
-                  final picked = await showTimePicker(
-                    context: context,
-                    initialTime: _reminderTime,
-                  );
-                  if (picked != null) setState(() => _reminderTime = picked);
-                },
+            _buildLabel('Time Schedule'),
+            const SizedBox(height: 8),
+            _buildCheckbox('Morning', _morning, (val) => setState(() => _morning = val ?? false)),
+            _buildCheckbox('Afternoon', _afternoon, (val) => setState(() => _afternoon = val ?? false)),
+            _buildCheckbox('Night', _night, (val) => setState(() => _night = val ?? false)),
+            const SizedBox(height: 24),
+
+            _buildLabel('Reminder Time'),
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: _pickTime,
+              child: Row(
+                children: [
+                  const Icon(Icons.alarm, color: Color(0xFF1E6CDB), size: 28),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _reminderTime.format(context),
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Tap to change reminder time',
+                        style: TextStyle(fontSize: 13, color: Colors.grey),
+                      ),
+                    ],
+                  )
+                ],
               ),
-              const Divider(),
-              const SizedBox(height: 8),
+            ),
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 16),
 
-              // ── Optional medicine image ────────────────────────────────────
-              _SectionLabel('Medicine Image (Optional)'),
-              GestureDetector(
-                onTap: _showImagePicker,
-                child: Container(
-                  width: double.infinity,
-                  height: 150,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
+            _buildLabel('Medicine Image (Optional)'),
+            Container(
+              width: double.infinity,
+              height: 120,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.camera_alt_outlined, color: Colors.grey, size: 32),
+                    SizedBox(height: 8),
+                    Text('Tap to add photo', style: TextStyle(color: Colors.grey)),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 50), // Spacer
+            
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                onPressed: _saveMedicine,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E6CDB),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                        color: Colors.grey.shade300, width: 1.5),
                   ),
-                  child: _selectedImage != null
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.file(_selectedImage!, fit: BoxFit.cover),
-                        )
-                      : const Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.add_a_photo,
-                                size: 36, color: Colors.grey),
-                            SizedBox(height: 8),
-                            Text('Tap to add image',
-                                style: TextStyle(color: Colors.grey)),
-                          ],
-                        ),
                 ),
+                child: const Text('Save Medicine', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
-              const SizedBox(height: 28),
-
-              // ── Save button ────────────────────────────────────────────────
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _saveMedicine,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1A73E8),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: _isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : Text(
-                          _isEditMode ? 'Update Medicine' : 'Add Medicine',
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                ),
-              ),
-            ],
-          ),
+            )
+          ],
         ),
       ),
     );
   }
 
-  // Helper: consistent input decoration
-  InputDecoration _inputDecoration(String hint) {
-    return InputDecoration(
-      hintText: hint,
-      filled: true,
-      fillColor: Colors.white,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey.shade200),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide:
-            const BorderSide(color: Color(0xFF1A73E8), width: 1.5),
+  Widget _buildLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87),
       ),
     );
   }
-}
 
-// Small section label widget
-class _SectionLabel extends StatelessWidget {
-  final String text;
-  const _SectionLabel(this.text);
+  Widget _buildTextField({required TextEditingController controller, required String hint}) {
+    return TextField(
+      controller: controller,
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: TextStyle(color: Colors.grey.shade400),
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFF1E6CDB), width: 1.5),
+        ),
+      ),
+    );
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        text,
-        style: const TextStyle(
-            fontWeight: FontWeight.w600, fontSize: 14, color: Colors.black87),
+  Widget _buildCheckbox(String title, bool value, ValueChanged<bool?> onChanged) {
+    return Theme(
+      data: Theme.of(context).copyWith(
+        unselectedWidgetColor: Colors.grey.shade400,
+      ),
+      child: CheckboxListTile(
+        title: Text(title, style: const TextStyle(fontSize: 15)),
+        value: value,
+        onChanged: onChanged,
+        activeColor: const Color(0xFF1E6CDB),
+        contentPadding: EdgeInsets.zero,
+        controlAffinity: ListTileControlAffinity.trailing,
       ),
     );
   }

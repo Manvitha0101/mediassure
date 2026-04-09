@@ -1,99 +1,141 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import 'add_medicine_screen.dart';
-import 'medicine_list_screen.dart';
-import 'prescription_screen.dart';
-import 'caretaker_screen.dart';
+import 'app_theme.dart';
 import 'login_screen.dart';
+import '../widgets/dashboard/header.dart';
+import '../widgets/dashboard/calendar.dart';
+import '../widgets/dashboard/progress_card.dart';
+import '../widgets/dashboard/action_grid.dart';
+import '../widgets/dashboard/caretaker_list.dart';
 
 class DashboardScreen extends StatelessWidget {
-const DashboardScreen({super.key});
+  const DashboardScreen({super.key});
 
-@override
-Widget build(BuildContext context) {
-final user = FirebaseAuth.instance.currentUser;
+  @override
+  Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
 
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: Stack(
+        children: [
+          _BackgroundBlobs(),
+          SafeArea(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
 
-return Scaffold(
-  appBar: AppBar(
-    title: const Text('Mediassure'),
-    actions: [
-      IconButton(
-        icon: const Icon(Icons.logout),
-        onPressed: () async {
-          await FirebaseAuth.instance.signOut();
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const LoginScreen(),
+                  // ── Header ───────────────────────────────────────────────
+                  DashboardHeader(
+                    email: user?.email ?? 'user@email.com',
+                    onLogout: () => _handleLogout(context),
+                  ),
+                  const SizedBox(height: 28),
+
+                  // ── This Week ────────────────────────────────────────────
+                  _SectionLabel('This Week'),
+                  const SizedBox(height: 12),
+                  WeekCalendar(
+                    onDaySelected: (_) {
+                      // TODO: filter medicines by date
+                    },
+                  ),
+                  const SizedBox(height: 28),
+
+                  // ── Progress ─────────────────────────────────────────────
+                  const ProgressCard(),
+                  const SizedBox(height: 28),
+
+                  // ── Quick Actions ─────────────────────────────────────────
+                  _SectionLabel('Quick Actions'),
+                  const SizedBox(height: 12),
+                  ActionGrid(),
+                  const SizedBox(height: 28),
+
+                  // ── Caretakers ────────────────────────────────────────────
+                  _SectionLabel('Caretakers'),
+                  const SizedBox(height: 12),
+                  const CaretakerList(),
+                  const SizedBox(height: 36),
+                ],
+              ),
             ),
-          );
-        },
+          ),
+        ],
       ),
-    ],
-  ),
-  body: Padding(
-    padding: const EdgeInsets.all(16),
-    child: Column(
+    );
+  }
+
+  Future<void> _handleLogout(BuildContext context) async {
+    await FirebaseAuth.instance.signOut();
+    if (!context.mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+    );
+  }
+}
+
+// ─── Section Label ─────────────────────────────────────────────────────────────
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Text(text, style: AppTextStyles.headingMedium),
+      );
+}
+
+// ─── Background Blobs ──────────────────────────────────────────────────────────
+
+class _BackgroundBlobs extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
       children: [
-        Text(
-          'Hello ${user?.email ?? 'User'}',
-          style: const TextStyle(fontSize: 20),
+        Positioned(
+          top: -60,
+          right: -50,
+          child: Container(
+            width: 220,
+            height: 220,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.primary.withOpacity(0.06),
+            ),
+          ),
         ),
-        const SizedBox(height: 20),
-
-        ElevatedButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const AddMedicineScreen(),
-              ),
-            );
-          },
-          child: const Text("Add Medicine"),
+        Positioned(
+          top: 300,
+          left: -70,
+          child: Container(
+            width: 180,
+            height: 180,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.accent.withOpacity(0.05),
+            ),
+          ),
         ),
-
-        ElevatedButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const MedicineListScreen(),
-              ),
-            );
-          },
-          child: const Text("Medicine List"),
-        ),
-
-        ElevatedButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const PrescriptionScreen(),
-              ),
-            );
-          },
-          child: const Text("Prescriptions"),
-        ),
-
-        ElevatedButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const CaretakerScreen(),
-              ),
-            );
-          },
-          child: const Text("Caretakers"),
+        Positioned(
+          bottom: 200,
+          right: -40,
+          child: Container(
+            width: 150,
+            height: 150,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.warning.withOpacity(0.05),
+            ),
+          ),
         ),
       ],
-    ),
-  ),
-);
-
-}
+    );
+  }
 }
