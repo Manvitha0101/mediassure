@@ -1,31 +1,37 @@
-// models/app_notification_model.dart
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum NotificationType { reminder, missed, escalation }
+enum NotificationType { reminder, missed, taken }
 
 class AppNotificationModel {
   final String notificationId;
-  final String userId; // The primary user who gets the notification
-  final String patientId; // The patient this relates to
+  final String userId;
+  final String patientId;
+  final String medicineId;
   final NotificationType type;
   final String message;
-  final DateTime timestamp;
+  final bool isRead;
+  final DateTime createdAt;
 
   AppNotificationModel({
     required this.notificationId,
     required this.userId,
     required this.patientId,
+    required this.medicineId,
     required this.type,
     required this.message,
-    required this.timestamp,
+    this.isRead = false,
+    required this.createdAt,
   });
 
   Map<String, dynamic> toMap() {
     return {
       'userId': userId,
       'patientId': patientId,
+      'medicineId': medicineId,
       'type': type.name,
       'message': message,
-      'timestamp': timestamp.toIso8601String(),
+      'isRead': isRead,
+      'createdAt': createdAt,
     };
   }
 
@@ -34,13 +40,15 @@ class AppNotificationModel {
       notificationId: id,
       userId: map['userId'] ?? '',
       patientId: map['patientId'] ?? '',
+      medicineId: map['medicineId'] ?? '',
       type: NotificationType.values.firstWhere(
         (e) => e.name == map['type'],
         orElse: () => NotificationType.reminder,
       ),
       message: map['message'] ?? '',
-      timestamp: map['timestamp'] != null 
-          ? DateTime.parse(map['timestamp']) 
+      isRead: map['isRead'] ?? false,
+      createdAt: (map['createdAt'] is Timestamp) 
+          ? (map['createdAt'] as Timestamp).toDate() 
           : DateTime.now(),
     );
   }

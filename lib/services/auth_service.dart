@@ -28,29 +28,18 @@ class AuthService {
 
       // Store user role in firestore
       if (credential.user != null) {
-        UserRoleModel userRole = UserRoleModel(
+        UserModel userRole = UserModel(
           uid: credential.user!.uid,
           name: name,
           email: email,
           role: role,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
+          patientIds: [],
         );
 
         await _db
             .collection('users')
             .doc(credential.user!.uid)
             .set(userRole.toMap());
-            
-        // If the user is a patient, also create a basic patient record
-        if (role == UserRole.patient) {
-          await _db.collection('patients').doc(credential.user!.uid).set({
-            'name': name,
-            'age': 0,
-            'assignedDoctorIds': [],
-            'assignedCaretakerIds': [],
-          });
-        }
       }
 
       return credential;
@@ -60,7 +49,7 @@ class AuthService {
   }
 
   // Log in
-  Future<UserRoleModel?> login(String email, String password) async {
+  Future<UserModel?> login(String email, String password) async {
     try {
       UserCredential credential = await _auth.signInWithEmailAndPassword(
         email: email,
@@ -77,10 +66,10 @@ class AuthService {
   }
 
   // Get user role
-  Future<UserRoleModel?> getUserRole(String uid) async {
+  Future<UserModel?> getUserRole(String uid) async {
     DocumentSnapshot doc = await _db.collection('users').doc(uid).get();
     if (doc.exists && doc.data() != null) {
-      return UserRoleModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+      return UserModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
     }
     return null;
   }

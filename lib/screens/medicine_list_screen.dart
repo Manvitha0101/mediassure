@@ -31,10 +31,12 @@ class MedicineListScreen extends StatelessWidget {
         child: const Icon(Icons.add, color: Colors.white),
         onPressed: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const AddMedicineScreen()),
+          MaterialPageRoute(
+            builder: (_) => AddMedicineScreen(patientId: patientId),
+          ),
         ),
       ),
-      body: StreamBuilder<List<Medicine>>(
+      body: StreamBuilder<List<MedicineModel>>(
         stream: medicineService.getMedicinesStream(patientId),
         builder: (context, snapshot) {
           // Loading state
@@ -78,7 +80,11 @@ class MedicineListScreen extends StatelessWidget {
                 onEdit: () => Navigator.push(
                   context,
                   MaterialPageRoute(
-                      builder: (_) => AddMedicineScreen(medicine: med)),
+                    builder: (_) => AddMedicineScreen(
+                      patientId: patientId,
+                      medicine: med,
+                    ),
+                  ),
                 ),
                 onDelete: () async {
                   // Confirm before delete
@@ -101,7 +107,7 @@ class MedicineListScreen extends StatelessWidget {
                     ),
                   );
                   if (confirm == true) {
-                    await medicineService.deleteMedicine(patientId, med.id);
+                    await medicineService.deleteMedicine(med.id);
                   }
                 },
               );
@@ -116,7 +122,7 @@ class MedicineListScreen extends StatelessWidget {
 // ─── Medicine Card Widget ──────────────────────────────────────────────────────
 
 class _MedicineCard extends StatelessWidget {
-  final Medicine medicine;
+  final MedicineModel medicine;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 

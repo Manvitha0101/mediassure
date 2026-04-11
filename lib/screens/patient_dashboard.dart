@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import '../services/auth_service.dart';
 import '../services/medicine_service.dart';
 import '../services/adherence_service.dart';
-import '../services/image_picker_service.dart';
+import 'package:image_picker/image_picker.dart';
 import '../models/medicine_model.dart';
 import '../models/adherence_log_model.dart';
 import 'add_medicine_screen.dart';
@@ -39,7 +39,6 @@ class _PatientDashboardState extends State<PatientDashboard> {
 
   final MedicineService _medService = MedicineService();
   final AdherenceService _adhService = AdherenceService();
-  final ImagePickerService _imgPicker = ImagePickerService();
 
   @override
   void initState() {
@@ -59,19 +58,49 @@ class _PatientDashboardState extends State<PatientDashboard> {
     }
   }
 
-  void _markAdherence(String medicineId, AdherenceStatus status) async {
+  Future<void> _markAsTakenWithImage(MedicineModel med, String scheduledTime) async {
     if (_uid == null) return;
-    try {
-      await _adhService.logAdherence(_uid!, medicineId, status);
+    
+    // 1. Open camera
+    final pickedFile = await ImagePicker().pickImage(source: ImageSource.camera);
+    if (pickedFile == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(status == AdherenceStatus.taken ? 'Logged as Taken' : 'Logged as Missed'),
-            backgroundColor: DashColors.cardIconBg,
+          const SnackBar(
+            content: Text('Image required to mark as taken'),
+            backgroundColor: DashColors.missed,
+          ),
+        );
+      }
+      return; // Do NOT proceed
+    }
+
+    // Capture verified, now save metadata locally then firestore
+    try {
+      await _adhService.logAdherenceStrict(
+        patientId: _uid!,
+        medicineId: med.id,
+        scheduledTime: scheduledTime,
+        photoFile: File(pickedFile.path),
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Logged as Taken successfully!'),
+            backgroundColor: DashColors.taken,
           ),
         );
       }
     } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save log: $e'),
+            backgroundColor: DashColors.missed,
+          ),
+        );
+      }
       debugPrint("Error logging adherence: $e");
     }
   }
@@ -108,7 +137,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
                   const SizedBox(height: 16),
                   
                   // Streams for live data
-                  StreamBuilder<List<Medicine>>(
+                  StreamBuilder<List<MedicineModel>>(
                     stream: _medService.getMedicinesStream(_uid!),
                     builder: (context, medSnapshot) {
                       return StreamBuilder<List<AdherenceLogModel>>(
@@ -147,20 +176,6 @@ class _PatientDashboardState extends State<PatientDashboard> {
               ),
             ),
           ),
-          if (_isUploadingAdherence)
-            Container(
-              color: Colors.black54,
-              child: const Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(color: DashColors.accent),
-                    SizedBox(height: 16),
-                    Text("Uploading Proof...", style: TextStyle(color: Colors.white, fontSize: 16)),
-                  ],
-                ),
-              ),
-            ),
         ],
       ),
       floatingActionButton: _buildAddButton(),
@@ -294,7 +309,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
     );
   }
 
-  Widget _buildTodaysMedicines(List<Medicine> meds, List<AdherenceLogModel> logs) {
+  Widget _buildTodaysMedicines(List<MedicineModel> meds, List<AdherenceLogModel> logs) {
     if (meds.isEmpty) {
       return const Padding(
         padding: EdgeInsets.all(20),
@@ -308,17 +323,13 @@ class _PatientDashboardState extends State<PatientDashboard> {
         // Find if any logs exist for this medicine today
         final todaysLogs = logs.where((l) => l.medicineId == med.id && _isSameDay(l.timestamp, DateTime.now())).toList();
         
-        bool isTaken = todaysLogs.any((l) => l.status == AdherenceStatus.taken);
-        bool isMissed = todaysLogs.any((l) => l.status == AdherenceStatus.missed);
+        bool isTaken = todaysLogs.any((l) => l.taken == true);
 
         Color ringColor = DashColors.accent;
         IconData? activeIcon;
         if (isTaken) {
           ringColor = DashColors.taken;
           activeIcon = Icons.check;
-        } else if (isMissed) {
-          ringColor = DashColors.missed;
-          activeIcon = Icons.close;
         }
 
         return Padding(
@@ -328,7 +339,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
             decoration: BoxDecoration(
               color: DashColors.surface,
               borderRadius: BorderRadius.circular(20),
-              border: (isTaken || isMissed) 
+              border: isTaken 
                   ? Border.all(color: ringColor.withOpacity(0.3), width: 1.5) 
                   : null,
             ),
@@ -343,7 +354,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
                   ),
                   child: Icon(
                     Icons.medication_liquid_rounded,
-                    color: (isTaken || isMissed) ? ringColor : DashColors.primaryText,
+                    color: isTaken ? ringColor : DashColors.primaryText,
                     size: 20,
                   ),
                 ),
@@ -355,7 +366,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
                       Text(
                         med.name,
                         style: TextStyle(
-                          color: (isTaken || isMissed) ? ringColor : DashColors.primaryText,
+                          color: isTaken ? ringColor : DashColors.primaryText,
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           decoration: isTaken ? TextDecoration.lineThrough : null,
@@ -373,27 +384,17 @@ class _PatientDashboardState extends State<PatientDashboard> {
                     ],
                   ),
                 ),
-                if (!isTaken && !isMissed)
-                  Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () => _markAdherence(med.id, AdherenceStatus.missed),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: DashColors.missed)),
-                          child: const Icon(Icons.close, color: DashColors.missed, size: 16),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      GestureDetector(
-                        onTap: () => _markAdherence(med.id, AdherenceStatus.taken),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: DashColors.taken)),
-                          child: const Icon(Icons.check, color: DashColors.taken, size: 16),
-                        ),
-                      ),
-                    ],
+                if (!isTaken)
+                  ElevatedButton.icon(
+                    onPressed: () => _markAsTakenWithImage(med, med.timings.isNotEmpty ? med.timings.first : 'Time'),
+                    icon: const Icon(Icons.camera_alt, color: Colors.black, size: 16),
+                    label: const Text('Capture & Mark', style: TextStyle(fontSize: 12, color: Colors.black, fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: DashColors.taken,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      minimumSize: Size.zero,
+                    ),
                   )
                 else
                   Container(
@@ -423,8 +424,8 @@ class _PatientDashboardState extends State<PatientDashboard> {
       final date = now.subtract(Duration(days: i));
       
       final dayLogs = logs.where((l) => _isSameDay(l.timestamp, date)).toList();
-      final takenCount = dayLogs.where((l) => l.status == AdherenceStatus.taken).length;
-      final missedCount = dayLogs.where((l) => l.status == AdherenceStatus.missed).length;
+      final takenCount = dayLogs.where((l) => l.taken == true).length;
+      final missedCount = dayLogs.where((l) => l.taken == false).length;
       final total = takenCount + missedCount;
       
       double percentage = 0;
@@ -505,7 +506,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
     );
   }
 
-  Widget _buildAllMedicines(List<Medicine> meds) {
+  Widget _buildAllMedicines(List<MedicineModel> meds) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
@@ -552,7 +553,13 @@ class _PatientDashboardState extends State<PatientDashboard> {
       margin: const EdgeInsets.only(bottom: 4, right: 4),
       child: ElevatedButton.icon(
         onPressed: () {
-          Navigator.push(context, MaterialPageRoute(builder: (_) => const AddMedicineScreen()));
+          if (_uid == null) return;
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AddMedicineScreen(patientId: _uid!),
+            ),
+          );
         },
         icon: const Icon(Icons.add_circle_outline, color: DashColors.primaryText, size: 20),
         label: const Text(

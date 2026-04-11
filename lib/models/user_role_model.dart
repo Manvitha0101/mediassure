@@ -2,29 +2,27 @@
 
 enum UserRole { patient, caretaker, doctor }
 
-class UserRoleModel {
+UserRole _roleFromString(String value) {
+  switch (value) {
+    case 'doctor':    return UserRole.doctor;
+    case 'caretaker': return UserRole.caretaker;
+    default:          return UserRole.patient;
+  }
+}
+
+class UserModel {
   final String uid;
   final String name;
   final String email;
   final UserRole role;
-  final String? gender;
-  final bool isActive;
-  final String? phone;
-  final String? profileImageURL;
-  final DateTime? createdAt;
-  final DateTime? updatedAt;
+  final List<String> patientIds;
 
-  UserRoleModel({
+  UserModel({
     required this.uid,
     required this.name,
     required this.email,
     required this.role,
-    this.gender,
-    this.isActive = true,
-    this.phone,
-    this.profileImageURL,
-    this.createdAt,
-    this.updatedAt,
+    this.patientIds = const [],
   });
 
   Map<String, dynamic> toMap() {
@@ -32,31 +30,18 @@ class UserRoleModel {
       'uid': uid,
       'name': name,
       'email': email,
-      'role': role.name,
-      'gender': gender,
-      'isActive': isActive,
-      'phone': phone,
-      'profileImageURL': profileImageURL,
-      'createdAt': createdAt?.toIso8601String(),
-      'updatedAt': updatedAt?.toIso8601String(),
+      'role': role.name, // stores "patient", "caretaker", "doctor"
+      'patientIds': patientIds,
     };
   }
 
-  factory UserRoleModel.fromMap(Map<String, dynamic> map, String id) {
-    return UserRoleModel(
+  factory UserModel.fromMap(Map<String, dynamic> map, String id) {
+    return UserModel(
       uid: id,
       name: map['name'] ?? '',
       email: map['email'] ?? '',
-      role: UserRole.values.firstWhere(
-        (e) => e.name == map['role'],
-        orElse: () => UserRole.patient,
-      ),
-      gender: map['gender'],
-      isActive: map['isActive'] ?? true,
-      phone: map['phone'],
-      profileImageURL: map['profileImageURL'],
-      createdAt: map['createdAt'] != null ? DateTime.tryParse(map['createdAt'].toString()) : null,
-      updatedAt: map['updatedAt'] != null ? DateTime.tryParse(map['updatedAt'].toString()) : null,
+      role: _roleFromString(map['role'] ?? 'patient'),
+      patientIds: List<String>.from(map['patientIds'] ?? []),
     );
   }
 }

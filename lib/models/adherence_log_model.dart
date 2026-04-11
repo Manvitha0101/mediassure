@@ -1,43 +1,63 @@
 // models/adherence_log_model.dart
 
-enum AdherenceStatus { taken, missed }
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+DateTime _parseTimestamp(dynamic value) {
+  if (value == null) return DateTime.now();
+  if (value is Timestamp) return value.toDate();
+  if (value is String) return DateTime.tryParse(value) ?? DateTime.now();
+  return DateTime.now();
+}
 
 class AdherenceLogModel {
-  final String logId;
+  final String id;
+  final String patientId;
   final String medicineId;
-  final AdherenceStatus status;
+  final bool taken;
+  final String scheduledTime;
   final DateTime timestamp;
-  final String? imageUrl;
+  final String proofImageUrl; // ALWAYS required
+  final Map<String, double> location; // lat, long
 
   AdherenceLogModel({
-    required this.logId,
+    required this.id,
+    required this.patientId,
     required this.medicineId,
-    required this.status,
+    required this.taken,
+    required this.scheduledTime,
     required this.timestamp,
-    this.imageUrl,
+    required this.proofImageUrl,
+    required this.location,
   });
 
   Map<String, dynamic> toMap() {
     return {
+      'patientId': patientId,
       'medicineId': medicineId,
-      'status': status.name,
-      'timestamp': timestamp.toIso8601String(),
-      'imageUrl': imageUrl,
+      'taken': taken,
+      'scheduledTime': scheduledTime,
+      'timestamp': timestamp, 
+      'proofImageUrl': proofImageUrl,
+      'location': location,
     };
   }
 
   factory AdherenceLogModel.fromMap(Map<String, dynamic> map, String id) {
     return AdherenceLogModel(
-      logId: id,
+      id: id,
+      patientId: map['patientId'] ?? '',
       medicineId: map['medicineId'] ?? '',
-      status: AdherenceStatus.values.firstWhere(
-        (e) => e.name == map['status'],
-        orElse: () => AdherenceStatus.missed,
-      ),
-      timestamp: map['timestamp'] != null 
-          ? DateTime.parse(map['timestamp']) 
-          : DateTime.now(),
-      imageUrl: map['imageUrl'],
+      taken: map['taken'] ?? false,
+      scheduledTime: map['scheduledTime'] ?? '',
+      timestamp: _parseTimestamp(map['timestamp']),
+      proofImageUrl: map['proofImageUrl'] ?? '',
+      location: map['location'] != null 
+          ? Map<String, double>.from(
+              (map['location'] as Map).map(
+                (k, v) => MapEntry(k.toString(), (v as num).toDouble()),
+              ),
+            ) 
+          : {'latitude': 0.0, 'longitude': 0.0},
     );
   }
 }

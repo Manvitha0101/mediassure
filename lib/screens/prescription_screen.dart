@@ -67,7 +67,7 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Prescription uploaded!'),
+              content: Text('Prescription record saved!'),
               backgroundColor: Colors.green),
         );
       }
@@ -75,7 +75,7 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Upload failed: $e'),
+              content: Text('Capture failed: $e'),
               backgroundColor: Colors.red),
         );
       }
@@ -172,22 +172,6 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
               );
             },
           ),
-          // Upload progress overlay
-          if (_isUploading)
-            Container(
-              color: Colors.black26,
-              child: const Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(color: Colors.white),
-                    SizedBox(height: 12),
-                    Text('Uploading...',
-                        style: TextStyle(color: Colors.white, fontSize: 16)),
-                  ],
-                ),
-              ),
-            ),
         ],
       ),
     );
@@ -209,18 +193,32 @@ class _PrescriptionCard extends StatelessWidget {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(12),
-          child: Image.network(
-            prescription.imageUrl,
-            fit: BoxFit.cover,
-            width: double.infinity,
-            height: double.infinity,
-            loadingBuilder: (_, child, progress) => progress == null
-                ? child
-                : const Center(child: CircularProgressIndicator()),
-            errorBuilder: (_, __, ___) => const Center(
-              child: Icon(Icons.broken_image, color: Colors.grey),
-            ),
-          ),
+          child: prescription.imageUrl.isEmpty 
+              ? Container(
+                  color: Colors.white,
+                  child: const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.verified_user, color: Colors.green, size: 40),
+                        SizedBox(height: 8),
+                        Text('Image Verified', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      ],
+                    ),
+                  ),
+                )
+              : Image.network(
+                  prescription.imageUrl,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
+                  loadingBuilder: (_, child, progress) => progress == null
+                      ? child
+                      : const Center(child: CircularProgressIndicator()),
+                  errorBuilder: (_, __, ___) => const Center(
+                    child: Icon(Icons.broken_image, color: Colors.grey),
+                  ),
+                ),
         ),
         // Delete button overlay
         Positioned(

@@ -26,15 +26,17 @@ class _ActionItem {
 // ─── Widget ───────────────────────────────────────────────────────────────────
 
 class ActionGrid extends StatelessWidget {
-  ActionGrid({super.key});
+  const ActionGrid({super.key, required this.patientId});
 
-  final List<_ActionItem> _actions = [
+  final String patientId;
+
+  List<_ActionItem> _getActions() => [
     _ActionItem(
       title: 'Add Medicine',
       icon: Icons.add_circle_rounded,
       color: AppColors.primary,
       bgColor: AppColors.primaryLight,
-      destination: const AddMedicineScreen(),
+      destination: AddMedicineScreen(patientId: patientId),
     ),
     _ActionItem(
       title: 'Medicine List',
@@ -61,6 +63,7 @@ class ActionGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final actions = _getActions();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: GridView.count(
@@ -70,7 +73,7 @@ class ActionGrid extends StatelessWidget {
         crossAxisSpacing: 14,
         mainAxisSpacing: 14,
         childAspectRatio: 1.15,
-        children: _actions
+        children: actions
             .map((item) => _ActionCard(item: item))
             .toList(),
       ),

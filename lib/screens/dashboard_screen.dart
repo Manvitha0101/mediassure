@@ -52,7 +52,7 @@ class DashboardScreen extends StatelessWidget {
                   // ── Quick Actions ─────────────────────────────────────────
                   _SectionLabel('Quick Actions'),
                   const SizedBox(height: 12),
-                  ActionGrid(),
+                  ActionGrid(patientId: user?.uid ?? ''),
                   const SizedBox(height: 28),
 
                   // ── Caretakers ────────────────────────────────────────────

@@ -1,43 +1,84 @@
-// services/adherence_service.dart
-// Dedicated service for logging adherence (taken/missed) under patients/{patientId}/adherenceLogs
-
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:geolocator/geolocator.dart';
 import '../models/adherence_log_model.dart';
 
 class AdherenceService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  CollectionReference _adherenceCollection(String patientId) {
-    return _db.collection('patients').doc(patientId).collection('adherenceLogs');
+  CollectionReference _adherenceCollection() {
+    return _db.collection('adherence_logs'); 
   }
 
-  // Log a taken or missed dose
-  Future<void> logAdherence(String patientId, String medicineId, AdherenceStatus status, {File? photoFile}) async {
-    String? imageUrl;
+  // Location helper
+  Future<Position> _determinePosition() async {
+    bool serviceEnabled;
+    LocationPermission permission;
 
-    if (photoFile != null) {
-      final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final ref = _storage.ref().child('adherenceProofs/$patientId/$fileName');
-      await ref.putFile(photoFile);
-      imageUrl = await ref.getDownloadURL();
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      throw Exception('Location services are disabled.');
     }
 
-    final log = AdherenceLogModel(
-      logId: '',
-      medicineId: medicineId,
-      status: status,
-      timestamp: DateTime.now(),
-      imageUrl: imageUrl,
-    );
-    await _adherenceCollection(patientId).add(log.toMap());
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        throw Exception('Location permissions are denied');
+      }
+    }
+    
+    if (permission == LocationPermission.deniedForever) {
+      throw Exception('Location permissions are permanently denied.');
+    } 
+
+    return await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
   }
 
-  // Get recent logs
+  // Strict log WITHOUT storage upload
+  Future<void> logAdherenceStrict({
+    required String patientId,
+    required String medicineId,
+    required String scheduledTime,
+    required File photoFile,
+  }) async {
+    try {
+      // 1. Verify photo is captured
+      if (!photoFile.existsSync()) {
+        throw Exception('Image proof is required');
+      }
+
+      // 2. Get Location
+      Position? position;
+      try {
+        position = await _determinePosition();
+      } catch (e) {
+        print("Location fetch failed: $e");
+      }
+
+      // 3. Save to Firestore (metadata only, no upload)
+      await _adherenceCollection().add({
+        'patientId': patientId,
+        'medicineId': medicineId,
+        'taken': true,
+        'scheduledTime': scheduledTime,
+        'timestamp': FieldValue.serverTimestamp(),
+        'proofImageUrl': '', // Empty string as per zero-cost requirement
+        'location': {
+          'latitude': position?.latitude ?? 0.0,
+          'longitude': position?.longitude ?? 0.0,
+        }
+      });
+    } catch (e) {
+      print("Error logging adherence: $e");
+      rethrow;
+    }
+  }
+
+  // Get recent logs based on patientId
   Stream<List<AdherenceLogModel>> getRecentLogs(String patientId) {
-    return _adherenceCollection(patientId)
+    return _adherenceCollection()
+        .where('patientId', isEqualTo: patientId)
         .orderBy('timestamp', descending: true)
         .limit(50)
         .snapshots()
