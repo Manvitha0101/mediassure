@@ -17,12 +17,14 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import 'screens/login_screen.dart';
-import 'screens/patient/main_patient_screen.dart';
+import 'package:mediassure/screens/login_screen.dart';
+import 'package:mediassure/screens/patient/main_patient_screen.dart';
+import 'package:mediassure/screens/caretaker/caretaker_main_screen.dart';
+import 'package:mediassure/services/auth_service.dart';
+import 'package:mediassure/models/user_role_model.dart';
 
 // ─── Future role-based imports (add when ready) ────────────────────────────────
 // import 'screens/doctor/main_doctor_screen.dart';
-// import 'screens/caretaker/main_caretaker_screen.dart';
 // ─────────────────────────────────────────────────────────────────────────────────
 
 class AuthWrapper extends StatelessWidget {
@@ -41,15 +43,23 @@ class AuthWrapper extends StatelessWidget {
 
         // ── Phase 2: User is authenticated ─────────────────────────────────────
         if (snapshot.hasData && snapshot.data != null) {
-          // ── Role-based routing (extend here in the future) ──────────────────
-          // Example:
-          //   final uid  = snapshot.data!.uid;
-          //   final role = await Firestore...getRole(uid);   // fetch from users/
-          //   if (role == 'doctor')     return const MainDoctorScreen();
-          //   if (role == 'caretaker')  return const MainCaretakerScreen();
-          //   return const MainPatientScreen();   // default / patient
-          // ────────────────────────────────────────────────────────────────────
-          return const MainPatientScreen();         // ← patient flow (current)
+          return FutureBuilder<UserModel?>(
+            future: AuthService().getUserRole(snapshot.data!.uid),
+            builder: (context, userSnapshot) {
+              if (userSnapshot.connectionState == ConnectionState.waiting) {
+                return const _LoadingScreen();
+              }
+              
+              if (userSnapshot.hasData && userSnapshot.data != null) {
+                final role = userSnapshot.data!.role;
+                if (role == UserRole.caretaker) return const CaretakerMainScreen();
+                if (role == UserRole.patient) return const MainPatientScreen();
+              }
+              
+              // default fallback for unknown role or error
+              return const LoginScreen();
+            },
+          );
         }
 
         // ── Phase 3: No user — show login ──────────────────────────────────────

@@ -1,64 +1,40 @@
-// models/patient_model.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
-
-DateTime? _parsePatientDate(dynamic value) {
-  if (value == null) return null;
-  if (value is Timestamp) return value.toDate();
-  if (value is String) return DateTime.tryParse(value);
-  return null;
-}
 
 class PatientModel {
   final String patientId;
   final String name;
-  final int age;
+  final String email;
+  final String caretakerId;
   final String? gender;
-  final String? bloodGroup;
-  final List<String> medicalConditions;
-  final List<String> caretakerIds;
-  final List<String> doctorIds;
-  final DateTime? createdAt;
-  final DateTime? updatedAt;
+  final int? age;
 
   PatientModel({
     required this.patientId,
     required this.name,
-    required this.age,
+    required this.email,
+    required this.caretakerId,
     this.gender,
-    this.bloodGroup,
-    this.medicalConditions = const [],
-    this.caretakerIds = const [],
-    this.doctorIds = const [],
-    this.createdAt,
-    this.updatedAt,
+    this.age,
   });
 
-  Map<String, dynamic> toMap() {
-    return {
-      'name': name,
-      'age': age,
-      'gender': gender,
-      'bloodGroup': bloodGroup,
-      'medicalConditions': medicalConditions,
-      'caretakerIds': caretakerIds,
-      'doctorIds': doctorIds,
-      // createdAt/updatedAt are injected as FieldValue.serverTimestamp() by PatientService
-    };
-  }
+  Map<String, dynamic> toMap() => {
+        'name': name,
+        'email': email,
+        'caretakerId': caretakerId,
+        'gender': gender,
+        'age': age,
+        'createdAt': FieldValue.serverTimestamp(),
+      };
 
-  factory PatientModel.fromMap(Map<String, dynamic> map, String id) {
+  factory PatientModel.fromDoc(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
     return PatientModel(
-      patientId:         id,
-      name:              map['name'] ?? '',
-      age:               map['age'] ?? 0,
-      gender:            map['gender'],
-      bloodGroup:        map['bloodGroup'],
-      medicalConditions: List<String>.from(map['medicalConditions'] ?? []),
-      caretakerIds:      List<String>.from(map['caretakerIds'] ?? []),
-      doctorIds:         List<String>.from(map['doctorIds'] ?? []),
-      createdAt:         _parsePatientDate(map['createdAt']),
-      updatedAt:         _parsePatientDate(map['updatedAt']),
+      patientId: doc.id,
+      name: data['name'] ?? '',
+      email: data['email'] ?? '',
+      caretakerId: data['caretakerId'] ?? '',
+      gender: data['gender'],
+      age: data['age'],
     );
   }
 }

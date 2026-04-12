@@ -63,6 +63,8 @@ class _LoginScreenState extends State<LoginScreen>
       if (!mounted) return;
       if (userRoleMap == null) {
         _showSnack('User profile not found. Please register.');
+      } else {
+        _showSnack('Login successful');
       }
       // Navigation is handled automatically by AuthWrapper via authStateChanges.
       // Do NOT call Navigator.pushReplacement here.

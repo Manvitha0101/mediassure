@@ -71,6 +71,7 @@ class _SignupScreenState extends State<SignupScreen>
       );
 
       if (!mounted) return;
+      _showSnack('Account created successfully');
       // Navigation handled by AuthWrapper via authStateChanges.
       // Do NOT call Navigator.pushReplacement here.
 
