@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'app_theme.dart';
-import 'login_screen.dart';
+// LoginScreen import removed — navigation handled by AuthWrapper.
 import '../widgets/dashboard/header.dart';
 import '../widgets/dashboard/calendar.dart';
 import '../widgets/dashboard/progress_card.dart';
@@ -71,11 +71,8 @@ class DashboardScreen extends StatelessWidget {
 
   Future<void> _handleLogout(BuildContext context) async {
     await FirebaseAuth.instance.signOut();
-    if (!context.mounted) return;
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-    );
+    // Navigation handled by AuthWrapper via authStateChanges.
+    // Do NOT call Navigator.pushReplacement here.
   }
 }
 

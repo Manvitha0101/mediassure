@@ -3,10 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../services/auth_service.dart';
 import '../models/user_role_model.dart';
-import 'patient_dashboard.dart';
-import 'caretaker_dashboard.dart';
-import 'doctor_dashboard.dart';
-
 import 'signup_screen.dart';
 import 'app_theme.dart';
 
@@ -65,19 +61,11 @@ class _LoginScreenState extends State<LoginScreen>
         _passwordController.text,
       );
       if (!mounted) return;
-      if (userRoleMap != null) {
-        Widget destination;
-        if (userRoleMap.role == UserRole.doctor) destination = const DoctorDashboard();
-        else if (userRoleMap.role == UserRole.caretaker) destination = const CaretakerDashboard();
-        else destination = const PatientDashboard();
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => destination),
-        );
-      } else {
+      if (userRoleMap == null) {
         _showSnack('User profile not found. Please register.');
       }
+      // Navigation is handled automatically by AuthWrapper via authStateChanges.
+      // Do NOT call Navigator.pushReplacement here.
     } on FirebaseAuthException catch (e) {
       _showSnack(_friendlyError(e.code));
     } catch (e) {

@@ -4,7 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 
 import 'firebase_options.dart';
 import 'screens/app_theme.dart';
-import 'screens/splash_screen.dart';
+import 'auth_wrapper.dart';
 import 'services/notification_service.dart';
 
 Future<void> main() async {
@@ -43,7 +43,7 @@ return MaterialApp(
 title: 'Mediassure',
 debugShowCheckedModeBanner: false,
 theme: AppTheme.light,
-home: const SplashScreen(),
+home: const AuthWrapper(), // ← Single source of truth for routing
 );
 }
 }

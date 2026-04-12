@@ -3,9 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../services/auth_service.dart';
 import '../models/user_role_model.dart';
-import 'patient_dashboard.dart';
-import 'caretaker_dashboard.dart';
-import 'doctor_dashboard.dart';
+// REMOVED: old dashboard imports. Navigation is handled by AuthWrapper.
 import 'app_theme.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -55,24 +53,9 @@ class _SignupScreenState extends State<SignupScreen>
     super.dispose();
   }
 
-  void _routeToDashboard(UserRole role) {
-    Widget target;
-    switch (role) {
-      case UserRole.patient:
-        target = const PatientDashboard();
-        break;
-      case UserRole.caretaker:
-        target = const CaretakerDashboard();
-        break;
-      case UserRole.doctor:
-        target = const DoctorDashboard();
-        break;
-    }
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => target),
-    );
-  }
+  // REMOVED: _routeToDashboard() — navigation is handled by AuthWrapper.
+  // When AuthService().signUp() creates a user, FirebaseAuth emits a new state
+  // and AuthWrapper automatically navigates to the correct screen.
 
   Future<void> _signUp() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
@@ -88,7 +71,8 @@ class _SignupScreenState extends State<SignupScreen>
       );
 
       if (!mounted) return;
-      _routeToDashboard(_selectedRole);
+      // Navigation handled by AuthWrapper via authStateChanges.
+      // Do NOT call Navigator.pushReplacement here.
 
     } on FirebaseAuthException catch (e) {
       _showSnack(e.message ?? 'Signup failed. Please try again.');

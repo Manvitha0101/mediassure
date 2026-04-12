@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 import 'app_theme.dart';
-import 'login_screen.dart';
-import 'dashboard_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -69,30 +66,9 @@ class _SplashScreenState extends State<SplashScreen>
     );
 
     _ctrl.forward();
-
-    // Navigate after animation settles
-    Future.delayed(const Duration(milliseconds: 2800), _navigate);
+    // Navigation is handled by AuthWrapper in main.dart — no routing here.
   }
 
-  Future<void> _navigate() async {
-    if (!mounted) return;
-    final user = FirebaseAuth.instance.currentUser;
-    final destination = user != null
-        ? const DashboardScreen()
-        : const LoginScreen();
-
-    Navigator.pushReplacement(
-      context,
-      PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 600),
-        pageBuilder: (_, __, ___) => destination,
-        transitionsBuilder: (_, animation, __, child) => FadeTransition(
-          opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
-          child: child,
-        ),
-      ),
-    );
-  }
 
   @override
   void dispose() {
