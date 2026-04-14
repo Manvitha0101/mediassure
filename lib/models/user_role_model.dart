@@ -16,6 +16,7 @@ class UserModel {
   final String email;
   final UserRole role;
   final List<String> patientIds;
+  final bool profileCompleted;
 
   UserModel({
     required this.uid,
@@ -23,6 +24,7 @@ class UserModel {
     required this.email,
     required this.role,
     this.patientIds = const [],
+    this.profileCompleted = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -32,6 +34,7 @@ class UserModel {
       'email': email,
       'role': role.name, // stores "patient", "caretaker", "doctor"
       'patientIds': patientIds,
+      'profileCompleted': profileCompleted,
     };
   }
 
@@ -42,6 +45,7 @@ class UserModel {
       email: map['email'] ?? '',
       role: _roleFromString(map['role'] ?? 'patient'),
       patientIds: List<String>.from(map['patientIds'] ?? []),
+      profileCompleted: map['profileCompleted'] ?? false,
     );
   }
 }

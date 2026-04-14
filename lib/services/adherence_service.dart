@@ -18,23 +18,44 @@ class AdherenceService {
             snap.docs.map((doc) => AdherenceLogModel.fromMap(doc.data(), doc.id)).toList());
   }
 
-  /// Log adherence with image (strict mode)
   Future<void> logAdherenceStrict({
     required String patientId,
     required String medicineId,
+    required String medicineName,
+    required String caretakerId,
+    required String caretakerName,
     required String scheduledTime,
-    required File photoFile,
+    File? photoFile, // optional for caretakers marking manually
   }) async {
-    // Note: In this version, we are not uploading to Firebase Storage (as per previous requirements)
-    // We just save the metadata and the local path (or a placeholder).
+    // Note: In this version, we are not uploading to Firebase Storage.
+    // We just save the metadata mapping the caretaker.
     final log = AdherenceLogModel(
       id: '',
+      patientId: patientId,
       medicineId: medicineId,
+      caretakerId: caretakerId,
+      caretakerName: caretakerName,
       scheduledTime: scheduledTime,
       timestamp: DateTime.now(),
       taken: true,
     );
 
     await _db.collection('adherence_logs').add(log.toMap());
+
+    // Also create a patient log entry automatically
+    final String amPm = DateTime.now().hour >= 12 ? 'PM' : 'AM';
+    final int hour12 = DateTime.now().hour > 12 ? DateTime.now().hour - 12 : (DateTime.now().hour == 0 ? 12 : DateTime.now().hour);
+    final String timeStr = '$hour12:${DateTime.now().minute.toString().padLeft(2, '0')} $amPm';
+    
+    final logMessage = "$medicineName given at $timeStr";
+    
+    final patientLogRef = _db.collection('patient_logs').doc();
+    await patientLogRef.set({
+      'patientId': patientId,
+      'message': logMessage,
+      'caretakerId': caretakerId,
+      'caretakerName': caretakerName,
+      'timestamp': FieldValue.serverTimestamp(),
+    });
   }
 }

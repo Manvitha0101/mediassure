@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../models/patient_model.dart';
 import '../../../services/patient_service.dart';
@@ -19,15 +20,13 @@ class _CaretakerPatientsTabState extends State<CaretakerPatientsTab> {
   final _patientService = PatientService();
   final _caretakerId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
-  // ─── Add Patient Dialog ────────────────────────────────────────────────────
+  // ─── Link Patient by Email Dialog ──────────────────────────────────────────
 
-  void _showAddPatientDialog() {
-    final nameCtrl = TextEditingController();
+  void _showLinkPatientDialog() {
     final emailCtrl = TextEditingController();
-    String gender = 'Male';
-    final ageCtrl = TextEditingController();
     final formKey = GlobalKey<FormState>();
     bool isLoading = false;
+    String? errorText;
 
     showDialog(
       context: context,
@@ -37,7 +36,7 @@ class _CaretakerPatientsTabState extends State<CaretakerPatientsTab> {
           backgroundColor: AppColors.surface,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: const Text(
-            'Add Patient',
+            'Link a Patient',
             style: TextStyle(
               fontWeight: FontWeight.w800,
               color: AppColors.textPrimary,
@@ -46,64 +45,37 @@ class _CaretakerPatientsTabState extends State<CaretakerPatientsTab> {
           ),
           content: Form(
             key: formKey,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _DialogField(
-                    controller: nameCtrl,
-                    label: 'Full Name',
-                    icon: Icons.person_outline_rounded,
-                    validator: (v) =>
-                        v == null || v.trim().isEmpty ? 'Name is required' : null,
-                  ),
-                  const SizedBox(height: 14),
-                  _DialogField(
-                    controller: emailCtrl,
-                    label: 'Email (optional)',
-                    icon: Icons.mail_outline_rounded,
-                    keyboardType: TextInputType.emailAddress,
-                  ),
-                  const SizedBox(height: 14),
-                  _DialogField(
-                    controller: ageCtrl,
-                    label: 'Age (optional)',
-                    icon: Icons.cake_outlined,
-                    keyboardType: TextInputType.number,
-                    validator: (v) {
-                      if (v != null && v.isNotEmpty && int.tryParse(v) == null) {
-                        return 'Enter a valid number';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 14),
-                  DropdownButtonFormField<String>(
-                    value: gender,
-                    decoration: InputDecoration(
-                      labelText: 'Gender',
-                      prefixIcon: const Icon(Icons.wc_rounded,
-                          color: AppColors.textSecondary, size: 20),
-                      filled: true,
-                      fillColor: AppColors.background,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                            color: AppColors.divider, width: 1.5),
-                      ),
-                    ),
-                    items: ['Male', 'Female', 'Other']
-                        .map((g) =>
-                            DropdownMenuItem(value: g, child: Text(g)))
-                        .toList(),
-                    onChanged: (v) => setDlg(() => gender = v ?? gender),
-                  ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Enter the email address of a patient who has already signed up on MediAssure.',
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary.withOpacity(0.8)),
+                ),
+                const SizedBox(height: 16),
+                _DialogField(
+                  controller: emailCtrl,
+                  label: 'Patient Email',
+                  icon: Icons.mail_outline_rounded,
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return 'Email is required';
+                    if (!v.contains('@')) return 'Enter a valid email';
+                    return null;
+                  },
+                ),
+                if (errorText != null) ...[
+                  const SizedBox(height: 10),
+                  Text(errorText!,
+                      style: const TextStyle(
+                          color: AppColors.danger,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600)),
                 ],
-              ),
+              ],
             ),
           ),
           actions: [
@@ -123,24 +95,33 @@ class _CaretakerPatientsTabState extends State<CaretakerPatientsTab> {
                   ? null
                   : () async {
                       if (!formKey.currentState!.validate()) return;
-                      setDlg(() => isLoading = true);
+                      setDlg(() {
+                        isLoading = true;
+                        errorText = null;
+                      });
                       try {
-                        await _patientService.addPatient(PatientModel(
-                          patientId: '',
-                          name: nameCtrl.text.trim(),
-                          email: emailCtrl.text.trim(),
+                        final patientUid = await _patientService
+                            .findPatientByEmail(emailCtrl.text.trim());
+
+                        if (patientUid == null) {
+                          setDlg(() {
+                            isLoading = false;
+                            errorText =
+                                'No patient found with that email. Make sure they have signed up as a Patient.';
+                          });
+                          return;
+                        }
+
+                        await _patientService.linkPatientByEmail(
+                          patientUid: patientUid,
                           caretakerId: _caretakerId,
-                          gender: gender,
-                          age: ageCtrl.text.isNotEmpty
-                              ? int.tryParse(ageCtrl.text.trim())
-                              : null,
-                        ));
+                        );
+
                         if (ctx.mounted) Navigator.pop(ctx);
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text(
-                                  '${nameCtrl.text.trim()} added successfully'),
+                              content: const Text('Patient linked successfully!'),
                               backgroundColor: Colors.green.shade600,
                               behavior: SnackBarBehavior.floating,
                               shape: RoundedRectangleBorder(
@@ -149,16 +130,10 @@ class _CaretakerPatientsTabState extends State<CaretakerPatientsTab> {
                           );
                         }
                       } catch (e) {
-                        setDlg(() => isLoading = false);
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Error: $e'),
-                              backgroundColor: Colors.red,
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        }
+                        setDlg(() {
+                          isLoading = false;
+                          errorText = 'Error: $e';
+                        });
                       }
                     },
               child: isLoading
@@ -167,7 +142,7 @@ class _CaretakerPatientsTabState extends State<CaretakerPatientsTab> {
                       height: 18,
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
-                  : const Text('Add'),
+                  : const Text('Link Patient'),
             ),
           ],
         ),
@@ -192,9 +167,9 @@ class _CaretakerPatientsTabState extends State<CaretakerPatientsTab> {
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: GradientButton(
-              text: 'Add',
+              text: 'Link Patient',
               icon: Icons.person_add_rounded,
-              onPressed: _showAddPatientDialog,
+              onPressed: _showLinkPatientDialog,
             ),
           ),
         ],
@@ -263,7 +238,7 @@ class _CaretakerPatientsTabState extends State<CaretakerPatientsTab> {
               ),
               const SizedBox(height: 12),
               Text(
-                'Tap "Add" to link your first patient.',
+                'Tap "Link Patient" in the top right to connect a patient using their MediAssure email.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14,
@@ -272,9 +247,9 @@ class _CaretakerPatientsTabState extends State<CaretakerPatientsTab> {
               ),
               const SizedBox(height: 24),
               GradientButton(
-                text: 'Add Patient',
+                text: 'Link Patient',
                 icon: Icons.person_add_rounded,
-                onPressed: _showAddPatientDialog,
+                onPressed: _showLinkPatientDialog,
               ),
             ],
           ),

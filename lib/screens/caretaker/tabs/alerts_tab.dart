@@ -143,7 +143,10 @@ class _PatientAlertsSection extends StatelessWidget {
                       l.timestamp.day == today.day,
                   orElse: () => AdherenceLogModel(
                     id: '',
+                    patientId: patient.patientId,
                     medicineId: med.id,
+                    caretakerId: '',
+                    caretakerName: '',
                     scheduledTime: timing,
                     timestamp: today,
                     taken: false,

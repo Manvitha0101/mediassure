@@ -17,9 +17,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:mediassure/screens/login_screen.dart';
 import 'package:mediassure/screens/patient/main_patient_screen.dart';
 import 'package:mediassure/screens/caretaker/caretaker_main_screen.dart';
+import 'package:mediassure/screens/profile_completion_screen.dart';
 import 'package:mediassure/services/auth_service.dart';
 import 'package:mediassure/models/user_role_model.dart';
 
@@ -43,15 +46,24 @@ class AuthWrapper extends StatelessWidget {
 
         // ── Phase 2: User is authenticated ─────────────────────────────────────
         if (snapshot.hasData && snapshot.data != null) {
-          return FutureBuilder<UserModel?>(
-            future: AuthService().getUserRole(snapshot.data!.uid),
-            builder: (context, userSnapshot) {
-              if (userSnapshot.connectionState == ConnectionState.waiting) {
+          final uid = snapshot.data!.uid;
+          
+          return StreamBuilder<DocumentSnapshot>(
+            stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+            builder: (context, userSnap) {
+              if (userSnap.connectionState == ConnectionState.waiting) {
                 return const _LoadingScreen();
               }
               
-              if (userSnapshot.hasData && userSnapshot.data != null) {
-                final role = userSnapshot.data!.role;
+              if (userSnap.hasData && userSnap.data != null && userSnap.data!.exists) {
+                final userData = userSnap.data!.data() as Map<String, dynamic>;
+                final userModel = UserModel.fromMap(userData, uid);
+                
+                if (!userModel.profileCompleted) {
+                  return const ProfileCompletionScreen();
+                }
+
+                final role = userModel.role;
                 if (role == UserRole.caretaker) return const CaretakerMainScreen();
                 if (role == UserRole.patient) return const MainPatientScreen();
               }

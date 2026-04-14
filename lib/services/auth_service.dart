@@ -34,6 +34,7 @@ class AuthService {
           email: email,
           role: role,
           patientIds: [],
+          profileCompleted: false,
         );
 
         await _db
