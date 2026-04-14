@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mediassure/widgets/glass_components.dart';
+import '../app_theme.dart';
 
 import 'tabs/patients_tab.dart';
 import 'tabs/medicines_tab.dart';
@@ -16,6 +17,7 @@ class CaretakerMainScreen extends StatefulWidget {
 class _CaretakerMainScreenState extends State<CaretakerMainScreen> {
   int _currentIndex = 0;
   String? _selectedPatientId;
+  final GlobalKey<CaretakerPatientsTabState> _patientsTabKey = GlobalKey();
 
   void _onPatientSelected(String id) {
     setState(() {
@@ -27,14 +29,45 @@ class _CaretakerMainScreenState extends State<CaretakerMainScreen> {
   @override
   Widget build(BuildContext context) {
     final List<Widget> screens = [
-      CaretakerPatientsTab(onPatientSelected: _onPatientSelected),
+      CaretakerPatientsTab(
+        key: _patientsTabKey,
+        onPatientSelected: _onPatientSelected,
+      ),
       CaretakerMedicinesTab(patientId: _selectedPatientId),
       const CaretakerAlertsTab(),
       const CaretakerProfileTab(),
     ];
 
+    final titles = [
+      'My Patients',
+      'Medicine Library',
+      'Recent Alerts',
+      'Caretaker Profile'
+    ];
+
     return Scaffold(
       extendBody: true,
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(
+        title: Text(
+          titles[_currentIndex],
+          style: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.5),
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: false,
+      ),
+      floatingActionButton: _currentIndex == 0
+          ? FloatingActionButton.extended(
+              onPressed: () => _patientsTabKey.currentState?.showLinkPatientDialog(),
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.person_add_rounded),
+              label: const Text('Link Patient',
+                  style: TextStyle(fontWeight: FontWeight.w700)),
+              elevation: 4,
+            )
+          : null,
       body: GlassBackground(
         child: IndexedStack(
           index: _currentIndex,

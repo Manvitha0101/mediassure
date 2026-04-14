@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/medicine_service.dart';
 import '../models/medicine_model.dart';
 import '../widgets/glass_components.dart';
@@ -27,6 +28,10 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
   bool _afternoon = false;
   bool _night = false;
 
+  TimeOfDay? _morningTime;
+  TimeOfDay? _afternoonTime;
+  TimeOfDay? _nightTime;
+
   bool _isLoading = false;
 
   @override
@@ -40,6 +45,21 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
       _morning = med.timings.contains('Morning');
       _afternoon = med.timings.contains('Afternoon');
       _night = med.timings.contains('Night');
+
+      if (med.slotTimes != null) {
+        if (_morning && med.slotTimes!.containsKey('Morning')) {
+          final dt = med.slotTimes!['Morning']!.toDate();
+          _morningTime = TimeOfDay.fromDateTime(dt);
+        }
+        if (_afternoon && med.slotTimes!.containsKey('Afternoon')) {
+          final dt = med.slotTimes!['Afternoon']!.toDate();
+          _afternoonTime = TimeOfDay.fromDateTime(dt);
+        }
+        if (_night && med.slotTimes!.containsKey('Night')) {
+          final dt = med.slotTimes!['Night']!.toDate();
+          _nightTime = TimeOfDay.fromDateTime(dt);
+        }
+      }
     }
   }
 
@@ -72,9 +92,24 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
       return;
     }
 
+    final Map<String, Timestamp> slotTimes = {};
+    final now = DateTime.now();
+
+    if (_morning && _morningTime != null) {
+      slotTimes['Morning'] = Timestamp.fromDate(DateTime(
+        now.year, now.month, now.day, _morningTime!.hour, _morningTime!.minute));
+    }
+    if (_afternoon && _afternoonTime != null) {
+      slotTimes['Afternoon'] = Timestamp.fromDate(DateTime(
+        now.year, now.month, now.day, _afternoonTime!.hour, _afternoonTime!.minute));
+    }
+    if (_night && _nightTime != null) {
+      slotTimes['Night'] = Timestamp.fromDate(DateTime(
+        now.year, now.month, now.day, _nightTime!.hour, _nightTime!.minute));
+    }
+
     setState(() => _isLoading = true);
     try {
-      final now = DateTime.now();
       final med = MedicineModel(
         id: widget.medicine?.id ?? '',
         name: name,
@@ -87,6 +122,7 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
         patientId: widget.patientId,
         isActive: true,
         createdAt: widget.medicine?.createdAt ?? now,
+        slotTimes: slotTimes,
       );
 
       final service = MedicineService();
@@ -206,9 +242,36 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _scheduleItem('Morning', Icons.wb_sunny_outlined, _morning, (v) => setState(() => _morning = v)),
-                        _scheduleItem('Afternoon', Icons.wb_cloudy_outlined, _afternoon, (v) => setState(() => _afternoon = v)),
-                        _scheduleItem('Night', Icons.dark_mode_outlined, _night, (v) => setState(() => _night = v)),
+                        _scheduleItem(
+                          'Morning',
+                          Icons.wb_sunny_outlined,
+                          _morning,
+                          _morningTime,
+                          (v, t) => setState(() {
+                            _morning = v;
+                            if (t != null) _morningTime = t;
+                          }),
+                        ),
+                        _scheduleItem(
+                          'Afternoon',
+                          Icons.wb_cloudy_outlined,
+                          _afternoon,
+                          _afternoonTime,
+                          (v, t) => setState(() {
+                            _afternoon = v;
+                            if (t != null) _afternoonTime = t;
+                          }),
+                        ),
+                        _scheduleItem(
+                          'Night',
+                          Icons.dark_mode_outlined,
+                          _night,
+                          _nightTime,
+                          (v, t) => setState(() {
+                            _night = v;
+                            if (t != null) _nightTime = t;
+                          }),
+                        ),
                       ],
                     ),
 
@@ -266,34 +329,80 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
         ),
       );
 
-  Widget _scheduleItem(String title, IconData icon, bool isSelected, Function(bool) onTap) =>
-      GestureDetector(
-        onTap: () => onTap(!isSelected),
-        child: GlassCard(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-          borderRadius: 20,
-          opacity: isSelected ? 0.35 : 0.08,
-          child: SizedBox(
-            width: 80,
-            child: Column(
-              children: [
-                Icon(
-                  icon,
-                  color: isSelected ? AppColors.primary : AppColors.textSecondary,
-                  size: 28,
+  Widget _scheduleItem(
+    String title,
+    IconData icon,
+    bool isSelected,
+    TimeOfDay? selectedTime,
+    Function(bool, TimeOfDay?) onTap,
+  ) {
+    String timeStr = 'Set Time';
+    if (selectedTime != null) {
+      final hour = selectedTime.hourOfPeriod == 0 ? 12 : selectedTime.hourOfPeriod;
+      final period = selectedTime.period == DayPeriod.am ? 'AM' : 'PM';
+      final minute = selectedTime.minute.toString().padLeft(2, '0');
+      timeStr = '$hour:$minute $period';
+    }
+
+    return GestureDetector(
+      onTap: () async {
+        if (!isSelected) {
+          final time = await showTimePicker(
+            context: context,
+            initialTime: selectedTime ?? const TimeOfDay(hour: 8, minute: 0),
+          );
+          if (time != null) {
+            onTap(true, time);
+          }
+        } else {
+          onTap(false, null);
+        }
+      },
+      child: GlassCard(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+        borderRadius: 20,
+        opacity: isSelected ? 0.35 : 0.08,
+        child: SizedBox(
+          width: 90,
+          child: Column(
+            children: [
+              Icon(
+                icon,
+                color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                size: 28,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                  color:
+                      isSelected ? AppColors.textPrimary : AppColors.textSecondary,
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
-                    color: isSelected ? AppColors.textPrimary : AppColors.textSecondary,
+              ),
+              if (isSelected) ...[
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    timeStr,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
                   ),
                 ),
               ],
-            ),
+            ],
           ),
         ),
-      );
+      ),
+    );
+  }
 }

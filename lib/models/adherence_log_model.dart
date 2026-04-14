@@ -9,6 +9,7 @@ class AdherenceLogModel {
   final String scheduledTime;
   final DateTime timestamp;
   final bool taken;
+  final String? photoUrl;
 
   AdherenceLogModel({
     required this.id,
@@ -19,6 +20,7 @@ class AdherenceLogModel {
     required this.scheduledTime,
     required this.timestamp,
     required this.taken,
+    this.photoUrl,
   });
 
   factory AdherenceLogModel.fromMap(Map<String, dynamic> data, String id) {
@@ -31,6 +33,7 @@ class AdherenceLogModel {
       scheduledTime: data['scheduledTime'] ?? '',
       timestamp: (data['timestamp'] as Timestamp).toDate(),
       taken: data['taken'] ?? false,
+      photoUrl: data['photoUrl'],
     );
   }
 
@@ -42,5 +45,6 @@ class AdherenceLogModel {
         'scheduledTime': scheduledTime,
         'timestamp': Timestamp.fromDate(timestamp),
         'taken': taken,
+        if (photoUrl != null) 'photoUrl': photoUrl,
       };
 }
