@@ -75,7 +75,8 @@ class _PatientDashboardState extends State<PatientDashboard> {
       return; // Do NOT proceed
     }
 
-    // Capture verified, now save metadata locally then firestore
+    setState(() => _isUploadingAdherence = true);
+
     try {
       await _adhService.logAdherenceStrict(
         patientId: _uid!,
@@ -102,6 +103,10 @@ class _PatientDashboardState extends State<PatientDashboard> {
         );
       }
       debugPrint("Error logging adherence: $e");
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingAdherence = false);
+      }
     }
   }
 
@@ -176,6 +181,26 @@ class _PatientDashboardState extends State<PatientDashboard> {
               ),
             ),
           ),
+          if (_isUploadingAdherence)
+            Container(
+              color: Colors.black54,
+              child: const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(color: DashColors.accent),
+                    SizedBox(height: 16),
+                    Text(
+                      'Uploading Proof...',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
       floatingActionButton: _buildAddButton(),

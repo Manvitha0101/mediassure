@@ -12,6 +12,7 @@ class MedicineModel {
   final String frequency;
   final String patientId;
   final DateTime createdAt;
+  final Map<String, Timestamp>? slotTimes; // Map of {"Morning": Timestamp, ...}
 
   MedicineModel({
     required this.id,
@@ -25,6 +26,7 @@ class MedicineModel {
     required this.frequency,
     required this.patientId,
     required this.createdAt,
+    this.slotTimes,
   });
 
   Map<String, dynamic> toMap() => {
@@ -38,6 +40,7 @@ class MedicineModel {
         'frequency': frequency,
         'patientId': patientId,
         'createdAt': Timestamp.fromDate(createdAt),
+        'slotTimes': slotTimes,
       };
 
   factory MedicineModel.fromMap(String id, Map<String, dynamic> data) {
@@ -55,6 +58,9 @@ class MedicineModel {
       createdAt: data['createdAt'] != null
           ? (data['createdAt'] as Timestamp).toDate()
           : DateTime.now(),
+      slotTimes: data['slotTimes'] != null
+          ? Map<String, Timestamp>.from(data['slotTimes'])
+          : null,
     );
   }
 }
