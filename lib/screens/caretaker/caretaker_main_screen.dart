@@ -17,7 +17,6 @@ class CaretakerMainScreen extends StatefulWidget {
 class _CaretakerMainScreenState extends State<CaretakerMainScreen> {
   int _currentIndex = 0;
   String? _selectedPatientId;
-  final GlobalKey<CaretakerPatientsTabState> _patientsTabKey = GlobalKey();
 
   void _onPatientSelected(String id) {
     setState(() {
@@ -30,7 +29,6 @@ class _CaretakerMainScreenState extends State<CaretakerMainScreen> {
   Widget build(BuildContext context) {
     final List<Widget> screens = [
       CaretakerPatientsTab(
-        key: _patientsTabKey,
         onPatientSelected: _onPatientSelected,
       ),
       CaretakerMedicinesTab(patientId: _selectedPatientId),
@@ -57,17 +55,7 @@ class _CaretakerMainScreenState extends State<CaretakerMainScreen> {
         elevation: 0,
         centerTitle: false,
       ),
-      floatingActionButton: _currentIndex == 0
-          ? FloatingActionButton.extended(
-              onPressed: () => _patientsTabKey.currentState?.showLinkPatientDialog(),
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              icon: const Icon(Icons.person_add_rounded),
-              label: const Text('Link Patient',
-                  style: TextStyle(fontWeight: FontWeight.w700)),
-              elevation: 4,
-            )
-          : null,
+
       body: GlassBackground(
         child: IndexedStack(
           index: _currentIndex,

@@ -32,9 +32,9 @@ class CaretakerAlertsTab extends StatelessWidget {
       ),
       body: caretakerId.isEmpty
           ? const Center(child: Text('Not logged in'))
-          : StreamBuilder<List<LinkedPatient>>(
+          : StreamBuilder<List<PatientModel>>(
               // Uses the new stream from /users.patientIds
-              stream: patientService.getLinkedPatientsStream(caretakerId),
+              stream: patientService.getPatientsByCaretaker(caretakerId),
               builder: (context, patientSnap) {
                 if (patientSnap.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -96,7 +96,7 @@ class CaretakerAlertsTab extends StatelessWidget {
 // ─── Missed Alerts List ───────────────────────────────────────────────────────
 
 class _MissedAlertsList extends StatelessWidget {
-  final List<LinkedPatient> patients;
+  final List<PatientModel> patients;
   const _MissedAlertsList({required this.patients});
 
   @override
@@ -110,7 +110,7 @@ class _MissedAlertsList extends StatelessWidget {
 }
 
 class _PatientAlertsSection extends StatelessWidget {
-  final LinkedPatient patient;
+  final PatientModel patient;
   const _PatientAlertsSection({required this.patient});
 
   @override
@@ -122,13 +122,13 @@ class _PatientAlertsSection extends StatelessWidget {
     final timeFormat = DateFormat('h:mm a');
 
     return StreamBuilder<List<MedicineModel>>(
-      stream: medService.getMedicinesStream(patient.uid),  // use .uid not .patientId
+      stream: medService.getMedicinesStream(patient.patientId),
       builder: (context, medSnap) {
         final meds = medSnap.data ?? [];
         if (meds.isEmpty) return const SizedBox.shrink();
 
         return StreamBuilder<List<AdherenceLogModel>>(
-          stream: adhService.getRecentLogs(patient.uid),
+          stream: adhService.getRecentLogs(patient.patientId),
           builder: (context, logSnap) {
             final logs = logSnap.data ?? [];
 
