@@ -15,22 +15,30 @@ class CaretakerMainScreen extends StatefulWidget {
 
 class _CaretakerMainScreenState extends State<CaretakerMainScreen> {
   int _currentIndex = 0;
+  String? _selectedPatientId;
 
-  final List<Widget> _screens = const [
-    CaretakerPatientsTab(),
-    CaretakerMedicinesTab(),
-    CaretakerAlertsTab(),
-    CaretakerProfileTab(),
-  ];
+  void _onPatientSelected(String id) {
+    setState(() {
+      _selectedPatientId = id;
+      _currentIndex = 1; // Switch to Medicines tab
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    final List<Widget> screens = [
+      CaretakerPatientsTab(onPatientSelected: _onPatientSelected),
+      CaretakerMedicinesTab(patientId: _selectedPatientId),
+      const CaretakerAlertsTab(),
+      const CaretakerProfileTab(),
+    ];
+
     return Scaffold(
       extendBody: true,
       body: GlassBackground(
         child: IndexedStack(
           index: _currentIndex,
-          children: _screens,
+          children: screens,
         ),
       ),
       bottomNavigationBar: Container(

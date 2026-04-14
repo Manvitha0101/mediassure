@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import '../services/medicine_service.dart';
 import '../models/medicine_model.dart';
+import '../widgets/glass_components.dart';
+import 'app_theme.dart';
 
 class AddMedicineScreen extends StatefulWidget {
-  /// The Firestore `patients` document ID this medicine belongs to.
   final String patientId;
-  final MedicineModel? medicine; // non-null when editing
+  final MedicineModel? medicine;
 
   const AddMedicineScreen({
     super.key,
@@ -18,35 +19,27 @@ class AddMedicineScreen extends StatefulWidget {
 }
 
 class _AddMedicineScreenState extends State<AddMedicineScreen> {
-  final _nameController   = TextEditingController();
+  final _nameController = TextEditingController();
   final _dosageController = TextEditingController();
+  final _durationController = TextEditingController(); // New field from mockup
 
-  String _selectedFrequency = 'Once daily';
-  final List<String> _frequencies = [
-    'Once daily',
-    'Twice daily',
-    'Thrice daily',
-    'Four times daily'
-  ];
-
-  bool _morning   = false;
+  bool _morning = false;
   bool _afternoon = false;
-  bool _night     = false;
+  bool _night = false;
 
-  TimeOfDay _reminderTime = const TimeOfDay(hour: 8, minute: 0);
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    final med = widget.medicine;
-    if (med != null) {
-      _nameController.text   = med.name;
+    if (widget.medicine != null) {
+      final med = widget.medicine!;
+      _nameController.text = med.name;
       _dosageController.text = med.dosage;
-      _selectedFrequency     = med.frequency;
-      _morning   = med.timings.contains('Morning');
+      _durationController.text = med.duration?.toString() ?? '';
+      _morning = med.timings.contains('Morning');
       _afternoon = med.timings.contains('Afternoon');
-      _night     = med.timings.contains('Night');
+      _night = med.timings.contains('Night');
     }
   }
 
@@ -54,23 +47,17 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
   void dispose() {
     _nameController.dispose();
     _dosageController.dispose();
+    _durationController.dispose();
     super.dispose();
   }
 
-  Future<void> _pickTime() async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: _reminderTime,
-    );
-    if (picked != null) setState(() => _reminderTime = picked);
-  }
-
-  Future<void> _saveMedicine() async {
-    final name   = _nameController.text.trim();
+  Future<void> _save() async {
+    final name = _nameController.text.trim();
     final dosage = _dosageController.text.trim();
+    final durationStr = _durationController.text.trim();
 
     if (name.isEmpty || dosage.isEmpty) {
-      _snack('Please fill Medicine Name and Dosage');
+      _snack('Please fill required fields');
       return;
     }
 
@@ -81,210 +68,232 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
     ];
 
     if (timings.isEmpty) {
-      _snack('Select at least one time schedule');
+      _snack('Select early schedule');
       return;
     }
 
     setState(() => _isLoading = true);
     try {
-      final now     = DateTime.now();
-      final service = MedicineService();
-
-      print("Saving medicine for patient: ${widget.patientId}");
-
+      final now = DateTime.now();
       final med = MedicineModel(
-        id:        widget.medicine?.id ?? '',
-        name:      name,
-        dosage:    dosage,
-        frequency: _selectedFrequency,
-        timings:   timings,
+        id: widget.medicine?.id ?? '',
+        name: name,
+        dosage: dosage,
+        duration: int.tryParse(durationStr),
+        frequency: 'Daily',
+        timings: timings,
         startDate: widget.medicine?.startDate ?? now,
-        endDate:   widget.medicine?.endDate ?? now.add(const Duration(days: 365)), // default to 1 year if new
+        endDate: widget.medicine?.endDate ?? now.add(const Duration(days: 365)),
         patientId: widget.patientId,
-        isActive:  true,
+        isActive: true,
         createdAt: widget.medicine?.createdAt ?? now,
       );
 
-      String docId;
+      final service = MedicineService();
       if (widget.medicine == null) {
-        docId = await service.addMedicine(med);
-        print("Medicine added with ID: $docId");
+        await service.addMedicine(med);
       } else {
         await service.updateMedicine(med);
-        print("Medicine updated: ${med.id}");
       }
 
       if (mounted) {
-        _snack('Medicine saved successfully!');
-        Navigator.pop(context, true); // return true to refresh list
+        _snack('Saved successfully!');
+        Navigator.pop(context);
       }
     } catch (e) {
-      print("Error in _saveMedicine: $e");
-      if (mounted) _snack('Failed to save: $e');
+      if (mounted) _snack('Error: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
   void _snack(String msg) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.textPrimary,
+      ),
+    );
   }
-
-  // ─── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FA),
-      appBar: AppBar(
-        title: Text(
-          widget.medicine == null ? 'Add Medicine' : 'Edit Medicine',
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        backgroundColor: const Color(0xFF1E6CDB),
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      body: GlassBackground(
+        child: Column(
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+              child: Row(
                 children: [
-                  _label('Medicine Name'),
-                  _field(controller: _nameController, hint: 'e.g. Paracetamol'),
-                  const SizedBox(height: 20),
-
-                  _label('Dosage'),
-                  _field(controller: _dosageController, hint: 'e.g. 500mg'),
-                  const SizedBox(height: 20),
-
-                  _label('Frequency'),
-                  _frequencyDropdown(),
-                  const SizedBox(height: 24),
-
-                  _label('Time Schedule'),
-                  const SizedBox(height: 8),
-                  _checkbox('Morning',   _morning,   (v) => setState(() => _morning   = v ?? false)),
-                  _checkbox('Afternoon', _afternoon, (v) => setState(() => _afternoon = v ?? false)),
-                  _checkbox('Night',     _night,     (v) => setState(() => _night     = v ?? false)),
-                  const SizedBox(height: 24),
-
-                  _label('Reminder Time'),
-                  const SizedBox(height: 8),
-                  _reminderRow(),
-                  const SizedBox(height: 40),
-
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: ElevatedButton(
-                      onPressed: _saveMedicine,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1E6CDB),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        shape: BoxShape.circle,
                       ),
+                      child: const Icon(Icons.close_rounded, color: AppColors.textPrimary, size: 20),
+                    ),
+                  ),
+                  const Expanded(
+                    child: Center(
                       child: Text(
-                        widget.medicine == null ? 'Save Medicine' : 'Update Medicine',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        'New Medicine',
+                        style: AppTextStyles.headingLarge,
                       ),
                     ),
                   ),
+                  const SizedBox(width: 40), // spacer for symmetry
                 ],
               ),
             ),
+
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 10),
+                    _sectionLabel('Medicine Name'),
+                    _glassField(
+                      controller: _nameController,
+                      hint: 'e.g. Vitamin D3',
+                      icon: Icons.medication_rounded,
+                    ),
+                    const SizedBox(height: 24),
+
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _sectionLabel('Dosage'),
+                              _glassField(
+                                controller: _dosageController,
+                                hint: '1 Pill',
+                                icon: Icons.straighten_rounded,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _sectionLabel('Duration'),
+                              _glassField(
+                                controller: _durationController,
+                                hint: '10 Days',
+                                icon: Icons.calendar_today_rounded,
+                                keyboardType: TextInputType.number,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 32),
+
+                    _sectionLabel('Schedule'),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _scheduleItem('Morning', Icons.wb_sunny_outlined, _morning, (v) => setState(() => _morning = v)),
+                        _scheduleItem('Afternoon', Icons.wb_cloudy_outlined, _afternoon, (v) => setState(() => _afternoon = v)),
+                        _scheduleItem('Night', Icons.dark_mode_outlined, _night, (v) => setState(() => _night = v)),
+                      ],
+                    ),
+
+                    const SizedBox(height: 60),
+                    SizedBox(
+                      width: double.infinity,
+                      child: GradientButton(
+                        text: widget.medicine == null ? 'Add Medicine' : 'Update',
+                        onPressed: _isLoading ? () {} : _save,
+                      ),
+                    ),
+                    const SizedBox(height: 40),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _label(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
+  Widget _sectionLabel(String label) => Padding(
+        padding: const EdgeInsets.only(bottom: 10, left: 4),
         child: Text(
-          text,
+          label,
           style: const TextStyle(
-              fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87),
-        ),
-      );
-
-  Widget _field({required TextEditingController controller, required String hint}) =>
-      TextField(
-        controller: controller,
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: TextStyle(color: Colors.grey.shade400),
-          filled: true,
-          fillColor: Colors.white,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey.shade300),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide:
-                const BorderSide(color: Color(0xFF1E6CDB), width: 1.5),
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
           ),
         ),
       );
 
-  Widget _frequencyDropdown() => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade300),
-        ),
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<String>(
-            value: _selectedFrequency,
-            isExpanded: true,
-            icon: const Icon(Icons.arrow_drop_down, color: Colors.grey),
-            items: _frequencies
-                .map((v) => DropdownMenuItem(value: v, child: Text(v)))
-                .toList(),
-            onChanged: (v) {
-              if (v != null) setState(() => _selectedFrequency = v);
-            },
+  Widget _glassField({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    TextInputType? keyboardType,
+  }) =>
+      GlassCard(
+        padding: EdgeInsets.zero,
+        borderRadius: 16,
+        child: TextField(
+          controller: controller,
+          keyboardType: keyboardType,
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(color: AppColors.textSecondary.withOpacity(0.5)),
+            prefixIcon: Icon(icon, color: AppColors.primary, size: 20),
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           ),
         ),
       );
 
-  Widget _checkbox(String title, bool value, ValueChanged<bool?> onChanged) =>
-      CheckboxListTile(
-        title: Text(title, style: const TextStyle(fontSize: 15)),
-        value: value,
-        onChanged: onChanged,
-        activeColor: const Color(0xFF1E6CDB),
-        contentPadding: EdgeInsets.zero,
-        controlAffinity: ListTileControlAffinity.trailing,
-      );
-
-  Widget _reminderRow() => InkWell(
-        onTap: _pickTime,
-        child: Row(
-          children: [
-            const Icon(Icons.alarm, color: Color(0xFF1E6CDB), size: 28),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _scheduleItem(String title, IconData icon, bool isSelected, Function(bool) onTap) =>
+      GestureDetector(
+        onTap: () => onTap(!isSelected),
+        child: GlassCard(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+          borderRadius: 20,
+          opacity: isSelected ? 0.35 : 0.08,
+          child: SizedBox(
+            width: 80,
+            child: Column(
               children: [
-                Text(
-                  _reminderTime.format(context),
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold),
+                Icon(
+                  icon,
+                  color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                  size: 28,
                 ),
-                const Text(
-                  'Tap to change reminder time',
-                  style: TextStyle(fontSize: 13, color: Colors.grey),
+                const SizedBox(height: 8),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                    color: isSelected ? AppColors.textPrimary : AppColors.textSecondary,
+                  ),
                 ),
               ],
-            )
-          ],
+            ),
+          ),
         ),
       );
 }

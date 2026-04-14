@@ -24,4 +24,11 @@ class AdherenceLogModel {
       taken: data['taken'] ?? false,
     );
   }
+
+  Map<String, dynamic> toMap() => {
+        'medicineId': medicineId,
+        'scheduledTime': scheduledTime,
+        'timestamp': Timestamp.fromDate(timestamp),
+        'taken': taken,
+      };
 }

@@ -9,7 +9,6 @@ class PatientService {
     return _db
         .collection('patients')
         .where('caretakerId', isEqualTo: caretakerId)
-        .orderBy('name')
         .snapshots()
         .map((snapshot) =>
             snapshot.docs.map((doc) => PatientModel.fromDoc(doc)).toList());

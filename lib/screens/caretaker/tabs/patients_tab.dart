@@ -8,7 +8,8 @@ import '../../app_theme.dart';
 import 'medicines_tab.dart'; // for navigating to a patient's medicines
 
 class CaretakerPatientsTab extends StatefulWidget {
-  const CaretakerPatientsTab({super.key});
+  final Function(String)? onPatientSelected;
+  const CaretakerPatientsTab({super.key, this.onPatientSelected});
 
   @override
   State<CaretakerPatientsTab> createState() => _CaretakerPatientsTabState();
@@ -218,8 +219,14 @@ class _CaretakerPatientsTabState extends State<CaretakerPatientsTab> {
                 return ListView.builder(
                   padding: const EdgeInsets.fromLTRB(20, 10, 20, 100),
                   itemCount: patients.length,
-                  itemBuilder: (_, i) =>
-                      _PatientCard(patient: patients[i]),
+                  itemBuilder: (_, i) => GestureDetector(
+                    onTap: () {
+                      if (widget.onPatientSelected != null) {
+                        widget.onPatientSelected!(patients[i].patientId);
+                      }
+                    },
+                    child: _PatientCard(patient: patients[i]),
+                  ),
                 );
               },
             ),

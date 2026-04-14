@@ -6,6 +6,7 @@ import '../../../services/medicine_service.dart';
 import '../../../services/adherence_service.dart';
 import '../../../widgets/glass_components.dart';
 import '../../app_theme.dart';
+import '../../add_medicine_screen.dart';
 
 /// Caretaker Medicines tab — shows all patients' medicines and today's adherence.
 /// Receives the patientId to filter medicines for the selected patient.
@@ -87,52 +88,139 @@ class _PatientMedicinesView extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('Medicines',
+        title: const Text('Medicine Library',
             style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.5)),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: StreamBuilder<List<MedicineModel>>(
-        stream: medService.getMedicinesStream(patientId),
-        builder: (context, medSnap) {
-          if (medSnap.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (medSnap.hasError) {
-            return Center(child: Text('Error: ${medSnap.error}'));
-          }
-          final meds = medSnap.data ?? [];
-          if (meds.isEmpty) {
-            return _emptyMedState(context);
-          }
+      body: Stack(
+        children: [
+          StreamBuilder<List<MedicineModel>>(
+            stream: medService.getMedicinesStream(patientId),
+            builder: (context, medSnap) {
+              if (medSnap.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (medSnap.hasError) {
+                return Center(child: Text('Error: ${medSnap.error}'));
+              }
+              final meds = medSnap.data ?? [];
 
-          return StreamBuilder<List<AdherenceLogModel>>(
-            stream: adhService.getRecentLogs(patientId),
-            builder: (context, logSnap) {
-              final logs = logSnap.data ?? [];
-              final today = DateTime.now();
+              return StreamBuilder<List<AdherenceLogModel>>(
+                stream: adhService.getRecentLogs(patientId),
+                builder: (context, logSnap) {
+                  final logs = logSnap.data ?? [];
+                  final today = DateTime.now();
 
-              return ListView.builder(
-                padding: const EdgeInsets.fromLTRB(20, 10, 20, 100),
-                itemCount: meds.length,
-                itemBuilder: (_, i) {
-                  final med = meds[i];
-                  final todayLogs = logs.where((l) {
-                    final ts = l.timestamp;
-                    return l.medicineId == med.id &&
-                        ts.year == today.year &&
-                        ts.month == today.month &&
-                        ts.day == today.day;
-                  }).toList();
-                  return _MedicineCard(med: med, todayLogs: todayLogs);
+                  // Calculate Adherence Rate (mock calculation for demo)
+                  double adherenceRate = 0.94; // as per mockup
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+                    itemCount: meds.length + 1, // +1 for the header
+                    itemBuilder: (_, i) {
+                      if (i == 0) return _AdherenceHeader(rate: adherenceRate);
+                      
+                      final med = meds[i - 1];
+                      final todayLogs = logs.where((l) {
+                        final ts = l.timestamp;
+                        return l.medicineId == med.id &&
+                            ts.year == today.year &&
+                            ts.month == today.month &&
+                            ts.day == today.day;
+                      }).toList();
+
+                      if (meds.isEmpty) {
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 40),
+                          child: _emptyMedState(context),
+                        );
+                      }
+
+                      return _MedicineCard(med: med, todayLogs: todayLogs);
+                    },
+                  );
                 },
               );
             },
-          );
-        },
+          ),
+          // Bottom Add Button
+          Positioned(
+            left: 20,
+            right: 20,
+            bottom: 30,
+            child: GradientButton(
+              text: 'Add Medicine',
+              icon: Icons.add_rounded,
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AddMedicineScreen(patientId: patientId),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
+
+  Widget _AdherenceHeader({required double rate}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24, top: 10),
+      child: GlassCard(
+        padding: const EdgeInsets.all(24),
+        borderRadius: 24,
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Adherence Rate',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${(rate * 100).toInt()}%',
+                    style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: 70,
+                  height: 70,
+                  child: CircularProgressIndicator(
+                    value: rate,
+                    strokeWidth: 10,
+                    backgroundColor: AppColors.primary.withOpacity(0.1),
+                    valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                    strokeCap: StrokeCap.round,
+                  ),
+                ),
+                const Icon(Icons.trending_up_rounded, color: AppColors.primary, size: 24),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
 
   Widget _emptyMedState(BuildContext context) {
     return Center(
