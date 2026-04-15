@@ -216,6 +216,7 @@ class _LogoBadge extends StatelessWidget {
 
 // ─── Feature Pill ──────────────────────────────────────────────────────────────
 
+// ignore: unused_element
 class _FeaturePill extends StatelessWidget {
   const _FeaturePill();
 

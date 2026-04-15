@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/medicine_service.dart';
+import '../services/patient_service.dart';
+import '../services/auth_service.dart';
 import '../models/medicine_model.dart';
+import '../models/user_role_model.dart';
 import '../widgets/glass_components.dart';
 import 'app_theme.dart';
 
@@ -30,9 +34,34 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
 
   TimeOfDay? _morningTime;
   TimeOfDay? _afternoonTime;
-  TimeOfDay? _nightTime;
+  TimeOfDay? _nightTime; 
 
   bool _isLoading = false;
+
+  Future<bool> _canCurrentUserManageThisPatient() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      _snack('Please login again.');
+      return false;
+    }
+
+    final user = await AuthService().getUserRole(uid);
+    if (user == null || user.role != UserRole.caretaker) {
+      _snack('Only caretakers can add/update medicines.');
+      return false;
+    }
+
+    final linked = await PatientService().isCaretakerLinked(
+      patientId: widget.patientId,
+      caretakerId: uid,
+    );
+    if (!linked) {
+      _snack('Link this patient first (Patients → Link Patient).');
+      return false;
+    }
+
+    return true;
+  }
 
   @override
   void initState() {
@@ -72,6 +101,8 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
   }
 
   Future<void> _save() async {
+    if (!await _canCurrentUserManageThisPatient()) return;
+
     final name = _nameController.text.trim();
     final dosage = _dosageController.text.trim();
     final durationStr = _durationController.text.trim();

@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../models/patient_model.dart';
 import '../../../services/patient_service.dart';
 import '../../../widgets/glass_components.dart';
 import '../../app_theme.dart';
-import 'medicines_tab.dart'; // for navigating to a patient's medicines
 
 class CaretakerPatientsTab extends StatefulWidget {
   final Function(String)? onPatientSelected;
@@ -178,7 +176,7 @@ class _CaretakerPatientsTabState extends State<CaretakerPatientsTab> {
           ? const Center(child: Text('Not logged in'))
           : StreamBuilder<List<PatientModel>>(
               stream:
-                  _patientService.getPatientsByCaretaker(_caretakerId),
+                  _patientService.getLinkedPatientsStream(_caretakerId),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -271,8 +269,8 @@ class _PatientCard extends StatelessWidget {
         ? patient.name.trim().split(' ').map((w) => w[0]).take(2).join().toUpperCase()
         : '?';
     final subtitle = [
-      if (patient.gender != null) patient.gender!,
-      if (patient.age != null) '${patient.age} yrs',
+      patient.gender,
+      '${patient.age} yrs',
     ].join(' · ');
 
     return Container(

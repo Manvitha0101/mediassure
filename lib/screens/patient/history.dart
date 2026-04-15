@@ -6,6 +6,7 @@ import '../../models/medicine_model.dart';
 import '../../models/adherence_log_model.dart';
 import '../../widgets/glass_components.dart';
 import '../app_theme.dart';
+import '../../debug/debug_logger.dart';
 
 class PatientHistoryScreen extends StatefulWidget {
   const PatientHistoryScreen({super.key});
@@ -43,6 +44,12 @@ class _PatientHistoryScreenState extends State<PatientHistoryScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (medSnapshot.hasError) {
+            DebugLogger.log(
+              hypothesisId: 'FS',
+              location: 'patient/history.dart',
+              message: 'medications stream error',
+              data: {'err': medSnapshot.error.toString()},
+            );
             return Center(child: Text('Error: ${medSnapshot.error}'));
           }
 
@@ -60,6 +67,12 @@ class _PatientHistoryScreenState extends State<PatientHistoryScreen> {
                 return const Center(child: CircularProgressIndicator());
               }
               if (logSnapshot.hasError) {
+                DebugLogger.log(
+                  hypothesisId: 'FS',
+                  location: 'patient/history.dart',
+                  message: 'adherenceLogs stream error',
+                  data: {'err': logSnapshot.error.toString()},
+                );
                 return Center(child: Text('Error: ${logSnapshot.error}'));
               }
 

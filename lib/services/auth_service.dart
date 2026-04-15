@@ -34,6 +34,7 @@ class AuthService {
           email: email,
           role: role,
           patientIds: [],
+          caretakerIds: [],
           profileCompleted: false,
         );
 

@@ -256,7 +256,21 @@ class _CompactMedicineCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isTaken = logs.any((l) => l.taken);
-    final photoUrl = logs.firstWhere((l) => l.photoUrl != null, orElse: () => AdherenceLogModel(id: '', medicineId: '', scheduledTime: '', timestamp: DateTime.now(), taken: false)).photoUrl;
+    final proofUrl = logs
+        .firstWhere(
+          (l) => l.imageUrl != null,
+          orElse: () => AdherenceLogModel(
+            id: '',
+            patientId: patientId,
+            medicineId: medicine.id,
+            caretakerId: '',
+            caretakerName: '',
+            scheduledTime: '',
+            timestamp: DateTime.now(),
+            taken: false,
+          ),
+        )
+        .imageUrl;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -303,9 +317,9 @@ class _CompactMedicineCard extends StatelessWidget {
                 ],
               ),
             ),
-            if (photoUrl != null)
+            if (proofUrl != null)
               GestureDetector(
-                onTap: () => _showPhotoProof(context, photoUrl),
+                onTap: () => _showPhotoProof(context, proofUrl),
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(

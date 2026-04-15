@@ -4,10 +4,12 @@ import '../../../models/medicine_model.dart';
 import '../../../models/adherence_log_model.dart';
 import '../../../services/medicine_service.dart';
 import '../../../services/adherence_service.dart';
+import '../../../services/notification_service.dart';
 import '../../../widgets/glass_components.dart';
 import '../../app_theme.dart';
 import '../../add_medicine_screen.dart';
 import '../patient_logs_screen.dart';
+import '../../chat_screen.dart';
 import '../../../models/user_role_model.dart';
 import '../../../services/auth_service.dart';
 import '../../../models/patient_log_model.dart';
@@ -117,6 +119,21 @@ class _PatientMedicinesView extends StatelessWidget {
             backgroundColor: Colors.transparent,
             elevation: 0,
             actions: [
+              IconButton(
+                tooltip: 'Chat',
+                icon: const Icon(Icons.chat_bubble_outline_rounded),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ChatScreen(
+                        patientId: patientId,
+                        title: 'Chat',
+                      ),
+                    ),
+                  );
+                },
+              ),
               StreamBuilder<List<PatientLogModel>>(
                 stream: logService.getLogsStream(patientId),
                 builder: (context, logSnap) {
@@ -172,6 +189,15 @@ class _PatientMedicinesView extends StatelessWidget {
                   }
                   final meds = medSnap.data ?? [];
 
+                  // Local reminders for the caretaker device for this patient scope.
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    NotificationService().syncMedicineReminders(
+                      scopeKey: 'caretaker:$caretakerId|patient:$patientId',
+                      medicines: meds,
+                      titlePrefix: 'Patient medicine',
+                    );
+                  });
+
                   return StreamBuilder<List<AdherenceLogModel>>(
                     stream: adhService.getRecentLogs(patientId),
                     builder: (context, logSnap) {
@@ -221,21 +247,22 @@ class _PatientMedicinesView extends StatelessWidget {
                 },
               ),
               // Bottom Add Button
-              Positioned(
-                left: 20,
-                right: 20,
-                bottom: 30,
-                child: GradientButton(
-                  text: 'Add Medicine',
-                  icon: Icons.add_rounded,
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => AddMedicineScreen(patientId: patientId),
+              if (caretakerModel.role == UserRole.caretaker)
+                Positioned(
+                  left: 20,
+                  right: 20,
+                  bottom: 30,
+                  child: GradientButton(
+                    text: 'Add Medicine',
+                    icon: Icons.add_rounded,
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AddMedicineScreen(patientId: patientId),
+                      ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
         );
@@ -369,7 +396,6 @@ class _MedicineCard extends StatelessWidget {
   final AdherenceService adhService;
 
 const _MedicineCard({
-  super.key,
   required this.med,
   required this.todayLogs,
   required this.patientId,
@@ -380,6 +406,7 @@ const _MedicineCard({
   Widget build(BuildContext context) {
     final isTaken = todayLogs.any((l) => l.taken);
     final isMissed = !isTaken && todayLogs.any((l) => !l.taken);
+    final canManage = caretakerModel.role == UserRole.caretaker;
 
     Color statusColor;
     IconData statusIcon;
@@ -440,14 +467,14 @@ const _MedicineCard({
                 ],
               ),
             ),
-            if (!isTaken) ...[
+            if (canManage && !isTaken) ...[
               IconButton(
                 icon: const Icon(Icons.check_circle_outline,
                     color: Colors.teal, size: 28),
                 tooltip: 'Mark as Taken',
                 onPressed: () async {
                   try {
-                    await adhService.logAdherenceStrict(
+                    await adhService.markTakenWithCamera(
                       patientId: patientId,
                       medicineId: med.id,
                       medicineName: med.name,
@@ -457,6 +484,7 @@ const _MedicineCard({
                     );
                   } catch (e) {
                     if (context.mounted) {
+                      ScaffoldMessenger.of(context).clearSnackBars();
                       ScaffoldMessenger.of(context)
                           .showSnackBar(SnackBar(content: Text('Error: $e')));
                     }
@@ -471,86 +499,88 @@ const _MedicineCard({
               ),
             ],
             // Edit / Delete menu
-            PopupMenuButton<String>(
-              icon: Icon(Icons.more_vert_rounded,
-                  color: AppColors.textSecondary.withOpacity(0.6), size: 20),
-              color: AppColors.surface,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14)),
-              onSelected: (value) async {
-                if (value == 'edit') {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          AddMedicineScreen(patientId: patientId, medicine: med),
-                    ),
-                  );
-                } else if (value == 'delete') {
-                  final confirmed = await showDialog<bool>(
-                    context: context,
-                    builder: (_) => AlertDialog(
-                      backgroundColor: AppColors.surface,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
-                      title: const Text('Delete Medicine',
-                          style: TextStyle(
-                              color: AppColors.textPrimary,
-                              fontWeight: FontWeight.w800)),
-                      content: Text(
-                          'Remove "${med.name}" from this patient\'s schedule?',
-                          style:
-                              const TextStyle(color: AppColors.textSecondary)),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context, false),
-                          child: const Text('Cancel',
-                              style:
-                                  TextStyle(color: AppColors.textSecondary)),
-                        ),
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.danger),
-                          onPressed: () => Navigator.pop(context, true),
-                          child: const Text('Delete',
-                              style: TextStyle(color: Colors.white)),
-                        ),
-                      ],
-                    ),
-                  );
-                  if (confirmed == true && context.mounted) {
-                    try {
-                      await MedicineService().deleteMedicine(med.id);
-                    } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error: $e')));
+            if (canManage)
+              PopupMenuButton<String>(
+                icon: Icon(Icons.more_vert_rounded,
+                    color: AppColors.textSecondary.withOpacity(0.6), size: 20),
+                color: AppColors.surface,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+                onSelected: (value) async {
+                  if (value == 'edit') {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            AddMedicineScreen(patientId: patientId, medicine: med),
+                      ),
+                    );
+                  } else if (value == 'delete') {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (_) => AlertDialog(
+                        backgroundColor: AppColors.surface,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16)),
+                        title: const Text('Delete Medicine',
+                            style: TextStyle(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.w800)),
+                        content: Text(
+                            'Remove "${med.name}" from this patient\'s schedule?',
+                            style:
+                                const TextStyle(color: AppColors.textSecondary)),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Cancel',
+                                style:
+                                    TextStyle(color: AppColors.textSecondary)),
+                          ),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.danger),
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text('Delete',
+                                style: TextStyle(color: Colors.white)),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirmed == true && context.mounted) {
+                      try {
+                        await MedicineService().deleteMedicine(med.id);
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).clearSnackBars();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Error: $e')));
+                        }
                       }
                     }
                   }
-                }
-              },
-              itemBuilder: (_) => [
-                const PopupMenuItem(
-                  value: 'edit',
-                  child: Row(children: [
-                    Icon(Icons.edit_outlined,
-                        size: 16, color: AppColors.textPrimary),
-                    SizedBox(width: 8),
-                    Text('Edit',
-                        style: TextStyle(color: AppColors.textPrimary)),
-                  ]),
-                ),
-                const PopupMenuItem(
-                  value: 'delete',
-                  child: Row(children: [
-                    Icon(Icons.delete_outline, size: 16, color: AppColors.danger),
-                    SizedBox(width: 8),
-                    Text('Delete', style: TextStyle(color: AppColors.danger)),
-                  ]),
-                ),
-              ],
-            ),
+                },
+                itemBuilder: (_) => [
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(children: [
+                      Icon(Icons.edit_outlined,
+                          size: 16, color: AppColors.textPrimary),
+                      SizedBox(width: 8),
+                      Text('Edit',
+                          style: TextStyle(color: AppColors.textPrimary)),
+                    ]),
+                  ),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(children: [
+                      Icon(Icons.delete_outline, size: 16, color: AppColors.danger),
+                      SizedBox(width: 8),
+                      Text('Delete', style: TextStyle(color: AppColors.danger)),
+                    ]),
+                  ),
+                ],
+              ),
           ],
         ),
       ),

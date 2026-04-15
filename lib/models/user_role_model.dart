@@ -16,6 +16,7 @@ class UserModel {
   final String email;
   final UserRole role;
   final List<String> patientIds;
+  final List<String> caretakerIds;
   final bool profileCompleted;
 
   UserModel({
@@ -24,6 +25,7 @@ class UserModel {
     required this.email,
     required this.role,
     this.patientIds = const [],
+    this.caretakerIds = const [],
     this.profileCompleted = false,
   });
 
@@ -34,6 +36,7 @@ class UserModel {
       'email': email,
       'role': role.name, // stores "patient", "caretaker", "doctor"
       'patientIds': patientIds,
+      'caretakerIds': caretakerIds,
       'profileCompleted': profileCompleted,
     };
   }
@@ -45,6 +48,7 @@ class UserModel {
       email: map['email'] ?? '',
       role: _roleFromString(map['role'] ?? 'patient'),
       patientIds: List<String>.from(map['patientIds'] ?? []),
+      caretakerIds: List<String>.from(map['caretakerIds'] ?? []),
       profileCompleted: map['profileCompleted'] ?? false,
     );
   }

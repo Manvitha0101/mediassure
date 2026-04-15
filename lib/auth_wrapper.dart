@@ -23,7 +23,6 @@ import 'package:mediassure/screens/login_screen.dart';
 import 'package:mediassure/screens/patient/main_patient_screen.dart';
 import 'package:mediassure/screens/caretaker/caretaker_main_screen.dart';
 import 'package:mediassure/screens/profile_completion_screen.dart';
-import 'package:mediassure/services/auth_service.dart';
 import 'package:mediassure/models/user_role_model.dart';
 
 // ─── Future role-based imports (add when ready) ────────────────────────────────

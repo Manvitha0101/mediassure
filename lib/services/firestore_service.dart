@@ -6,12 +6,15 @@ import '../models/app_notification_model.dart';
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
+  static const String _colMedicines = 'medicines';
+  static const String _colAdherenceLogs = 'adherenceLogs';
+
   // --- MEDICINES ---
   
   // Fetch medicines for a specific patient
   Stream<List<MedicineModel>> getMedications(String patientId) {
     return _db
-        .collection('medicines')
+        .collection(_colMedicines)
         .where('patientId', isEqualTo: patientId)
         .snapshots()
         .map((snapshot) => snapshot.docs
@@ -23,8 +26,9 @@ class FirestoreService {
 
   // Fetch adherence logs for a specific patient
   Stream<List<AdherenceLogModel>> getLogs(String patientId) {
+    // Canonical collection name: `adherenceLogs`
     return _db
-        .collection('adherence_logs')
+        .collection(_colAdherenceLogs)
         .where('patientId', isEqualTo: patientId)
         .orderBy('timestamp', descending: true)
         .snapshots()
@@ -40,16 +44,20 @@ class FirestoreService {
     required String scheduledTime,
     required bool taken,
     Map<String, double>? location,
-    String? proofImageUrl,
+    String? imageUrl,
+    String? caretakerId,
+    String? caretakerName,
   }) async {
-    await _db.collection('adherence_logs').add({
+    await _db.collection(_colAdherenceLogs).add({
       'patientId': patientId,
       'medicineId': medicineId,
+      if (caretakerId != null) 'caretakerId': caretakerId,
+      if (caretakerName != null) 'caretakerName': caretakerName,
       'scheduledTime': scheduledTime,
       'taken': taken,
       'timestamp': FieldValue.serverTimestamp(),
       if (location != null) 'location': location,
-      if (proofImageUrl != null) 'proofImageUrl': proofImageUrl,
+      if (imageUrl != null) 'imageUrl': imageUrl,
     });
   }
 

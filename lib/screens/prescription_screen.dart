@@ -18,6 +18,7 @@ class PrescriptionScreen extends StatefulWidget {
 class _PrescriptionScreenState extends State<PrescriptionScreen> {
   final _prescriptionService = PrescriptionService();
   final _imagePicker = ImagePickerService();
+  // ignore: unused_field
   bool _isUploading = false;
 
   // Show camera/gallery picker, then upload

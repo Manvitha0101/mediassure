@@ -9,7 +9,11 @@ class AdherenceLogModel {
   final String scheduledTime;
   final DateTime timestamp;
   final bool taken;
-  final String? photoUrl;
+  /// Proof image URL in Firebase Storage (optional).
+  ///
+  /// Canonical field name in Firestore: `imageUrl`
+  /// Back-compat reads: `photoUrl`, `proofImageUrl`
+  final String? imageUrl;
 
   AdherenceLogModel({
     required this.id,
@@ -20,7 +24,7 @@ class AdherenceLogModel {
     required this.scheduledTime,
     required this.timestamp,
     required this.taken,
-    this.photoUrl,
+    this.imageUrl,
   });
 
   factory AdherenceLogModel.fromMap(Map<String, dynamic> data, String id) {
@@ -31,9 +35,12 @@ class AdherenceLogModel {
       caretakerId: data['caretakerId'] ?? '',
       caretakerName: data['caretakerName'] ?? '',
       scheduledTime: data['scheduledTime'] ?? '',
-      timestamp: (data['timestamp'] as Timestamp).toDate(),
+      timestamp: (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
       taken: data['taken'] ?? false,
-      photoUrl: data['photoUrl'],
+      imageUrl: (data['imageUrl'] ??
+              data['photoUrl'] ??
+              data['proofImageUrl'])
+          as String?,
     );
   }
 
@@ -45,6 +52,6 @@ class AdherenceLogModel {
         'scheduledTime': scheduledTime,
         'timestamp': Timestamp.fromDate(timestamp),
         'taken': taken,
-        if (photoUrl != null) 'photoUrl': photoUrl,
+        if (imageUrl != null) 'imageUrl': imageUrl,
       };
 }

@@ -3,7 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/user_role_model.dart';
-import '../models/patient_model.dart';
 import '../services/auth_service.dart';
 import '../widgets/glass_components.dart';
 import 'app_theme.dart';

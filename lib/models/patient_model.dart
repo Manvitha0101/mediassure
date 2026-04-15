@@ -51,3 +51,14 @@ class PatientModel {
     );
   }
 }
+
+/// Lightweight caretaker-side patient reference used by some screens.
+class LinkedPatient {
+  final String uid;
+  final String name;
+
+  const LinkedPatient({
+    required this.uid,
+    required this.name,
+  });
+}

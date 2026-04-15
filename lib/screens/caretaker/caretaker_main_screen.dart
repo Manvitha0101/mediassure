@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:mediassure/widgets/glass_components.dart';
-import '../app_theme.dart';
 
 import 'tabs/patients_tab.dart';
 import 'tabs/medicines_tab.dart';

@@ -144,10 +144,11 @@ class _CaretakerProfileTabState extends State<CaretakerProfileTab> {
                       _ProfileRow(
                         icon: Icons.fingerprint_rounded,
                         label: 'User ID',
-                        value: FirebaseAuth.instance.currentUser?.uid
-                                ?.substring(0, 8)
-                                .toUpperCase() ??
-                            'N/A',
+                        value: (() {
+                          final uid = FirebaseAuth.instance.currentUser?.uid;
+                          if (uid == null || uid.isEmpty) return 'N/A';
+                          return uid.substring(0, uid.length >= 8 ? 8 : uid.length).toUpperCase();
+                        })(),
                       ),
                     ],
                   ),

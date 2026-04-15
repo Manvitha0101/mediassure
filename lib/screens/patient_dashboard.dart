@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
@@ -82,7 +81,9 @@ class _PatientDashboardState extends State<PatientDashboard> {
         patientId: _uid!,
         medicineId: med.id,
         scheduledTime: scheduledTime,
-        photoFile: File(pickedFile.path),
+        taken: true,
+        // NOTE: This legacy screen is not part of the active patient flow.
+        // Proof upload is implemented in caretaker flow.
       );
 
       if (mounted) {

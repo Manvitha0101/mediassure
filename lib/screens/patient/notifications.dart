@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../../services/firestore_service.dart';
-import '../../models/app_notification_model.dart';
+import '../../models/medicine_model.dart';
+import '../../models/adherence_log_model.dart';
 import '../../widgets/glass_components.dart';
 import '../app_theme.dart';
+import '../../debug/debug_logger.dart';
 
 class PatientNotificationsScreen extends StatefulWidget {
   const PatientNotificationsScreen({super.key});
@@ -31,33 +33,99 @@ class _PatientNotificationsScreenState
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('Notifications',
+        title: const Text('Alerts',
             style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.5)),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: StreamBuilder<List<AppNotificationModel>>(
-        stream: _firestoreService.getNotifications(_currentUserId),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+      body: StreamBuilder<List<MedicineModel>>(
+        stream: _firestoreService.getMedications(_currentUserId),
+        builder: (context, medSnap) {
+          if (medSnap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
+          if (medSnap.hasError) {
+            DebugLogger.log(
+              hypothesisId: 'FS',
+              location: 'patient/notifications.dart',
+              message: 'medications stream error',
+              data: {'err': medSnap.error.toString()},
+            );
+            return Center(child: Text('Error: ${medSnap.error}'));
           }
 
-          final notifications = snapshot.data ?? [];
+          final meds = medSnap.data ?? const [];
+          return StreamBuilder<List<AdherenceLogModel>>(
+            stream: _firestoreService.getLogs(_currentUserId),
+            builder: (context, logSnap) {
+              if (logSnap.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (logSnap.hasError) {
+                DebugLogger.log(
+                  hypothesisId: 'FS',
+                  location: 'patient/notifications.dart',
+                  message: 'adherenceLogs stream error',
+                  data: {'err': logSnap.error.toString()},
+                );
+                return Center(child: Text('Error: ${logSnap.error}'));
+              }
 
-          if (notifications.isEmpty) {
-            return _buildEmptyState();
-          }
+              final logs = logSnap.data ?? const [];
+              final today = DateTime.now();
 
-          return ListView.builder(
-            padding: const EdgeInsets.fromLTRB(20, 10, 20, 100),
-            itemCount: notifications.length,
-            itemBuilder: (context, index) {
-              final notif = notifications[index];
-              return _buildNotificationCard(notif);
+              final alerts = <_PatientAlert>[];
+              for (final med in meds) {
+                for (final timing in med.timings) {
+                  final todayLog = logs.firstWhere(
+                    (l) =>
+                        l.medicineId == med.id &&
+                        l.scheduledTime == timing &&
+                        l.timestamp.year == today.year &&
+                        l.timestamp.month == today.month &&
+                        l.timestamp.day == today.day,
+                    orElse: () => AdherenceLogModel(
+                      id: '',
+                      patientId: _currentUserId,
+                      medicineId: med.id,
+                      caretakerId: '',
+                      caretakerName: '',
+                      scheduledTime: timing,
+                      timestamp: today,
+                      taken: false,
+                    ),
+                  );
+
+                  final isTaken = todayLog.id.isNotEmpty && todayLog.taken == true;
+                  if (isTaken) continue; // Only show pending/missed
+
+                  alerts.add(
+                    _PatientAlert(
+                      medicineName: med.name,
+                      dosage: med.dosage,
+                      timing: timing,
+                      isMissed: todayLog.id.isNotEmpty && todayLog.taken == false,
+                      createdAt: today,
+                    ),
+                  );
+                }
+              }
+
+              if (alerts.isEmpty) return _buildEmptyState();
+
+              // Missed first, then pending
+              alerts.sort((a, b) {
+                if (a.isMissed != b.isMissed) return a.isMissed ? -1 : 1;
+                return a.medicineName.compareTo(b.medicineName);
+              });
+
+              return ListView.builder(
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 100),
+                itemCount: alerts.length,
+                itemBuilder: (context, index) {
+                  return _buildAlertCard(alerts[index]);
+                },
+              );
             },
           );
         },
@@ -65,27 +133,10 @@ class _PatientNotificationsScreenState
     );
   }
 
-  Widget _buildNotificationCard(AppNotificationModel notif) {
-    IconData icon;
-    Color color;
-
-    switch (notif.type) {
-      case NotificationType.reminder:
-        icon = Icons.notifications_active_rounded;
-        color = Colors.blueAccent;
-        break;
-      case NotificationType.missed:
-        icon = Icons.warning_amber_rounded;
-        color = Colors.redAccent;
-        break;
-      case NotificationType.taken:
-        icon = Icons.check_circle_outline_rounded;
-        color = Colors.teal;
-        break;
-      default:
-        icon = Icons.notifications_rounded;
-        color = Colors.grey;
-    }
+  Widget _buildAlertCard(_PatientAlert alert) {
+    final icon = alert.isMissed ? Icons.cancel_rounded : Icons.schedule_rounded;
+    final color = alert.isMissed ? Colors.redAccent : AppColors.warning;
+    final label = alert.isMissed ? 'Missed' : 'Pending';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -107,7 +158,7 @@ class _PatientNotificationsScreenState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    notif.message,
+                    alert.medicineName,
                     style: const TextStyle(
                       fontWeight: FontWeight.w700, 
                       fontSize: 15,
@@ -116,11 +167,20 @@ class _PatientNotificationsScreenState
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    _dateFormat.format(notif.createdAt),
+                    '${alert.dosage} · ${alert.timing} · $label',
                     style: TextStyle(
                       color: AppColors.textSecondary.withOpacity(0.7), 
                       fontSize: 12,
                       fontWeight: FontWeight.w500
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _dateFormat.format(alert.createdAt),
+                    style: TextStyle(
+                      color: AppColors.textSecondary.withOpacity(0.55),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
@@ -161,7 +221,7 @@ class _PatientNotificationsScreenState
               ),
               const SizedBox(height: 12),
               Text(
-                'You will see alerts and medication reminders here when they are triggered.',
+                'No missed or pending medicines for today.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14,
@@ -174,4 +234,20 @@ class _PatientNotificationsScreenState
       ),
     );
   }
+}
+
+class _PatientAlert {
+  final String medicineName;
+  final String dosage;
+  final String timing;
+  final bool isMissed;
+  final DateTime createdAt;
+
+  const _PatientAlert({
+    required this.medicineName,
+    required this.dosage,
+    required this.timing,
+    required this.isMissed,
+    required this.createdAt,
+  });
 }

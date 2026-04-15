@@ -5,6 +5,8 @@ import '../../models/medicine_model.dart';
 import '../../models/adherence_log_model.dart';
 import '../../widgets/glass_components.dart';
 import '../app_theme.dart';
+import '../chat_screen.dart';
+import '../../services/notification_service.dart';
 
 class PatientDashboardScreen extends StatefulWidget {
   const PatientDashboardScreen({super.key});
@@ -16,6 +18,7 @@ class PatientDashboardScreen extends StatefulWidget {
 class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   final FirestoreService _firestoreService = FirestoreService();
   final String _currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+  String? _lastReminderFingerprint;
 
   bool _isToday(DateTime date) {
     final now = DateTime.now();
@@ -46,28 +49,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     }
   }
 
-  Future<void> _markAdherence(
-      String medicineId, String timing, bool taken) async {
-    if (_currentUserId.isEmpty) return;
-    try {
-      await _firestoreService.addLog(
-        patientId: _currentUserId,
-        medicineId: medicineId,
-        scheduledTime: timing,
-        taken: taken,
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error updating: $e'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    }
-  }
+  // Patients cannot mark medicines as taken/missed.
 
   @override
   Widget build(BuildContext context) {
@@ -83,6 +65,21 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
+          IconButton(
+            tooltip: 'Chat',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ChatScreen(
+                    patientId: _currentUserId,
+                    title: 'Chat',
+                  ),
+                ),
+              );
+            },
+            icon: const Icon(Icons.chat_bubble_outline_rounded, size: 20),
+          ),
           IconButton(
             onPressed: () {},
             icon: const Icon(Icons.calendar_today_rounded, size: 20),
@@ -104,6 +101,20 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
           final todayMeds = allMeds.where((m) {
             return m.isActive && _isDateInRange(DateTime.now(), m.startDate, m.endDate);
           }).toList();
+
+          final fingerprint = todayMeds
+              .map((m) => '${m.id}:${m.timings.join("|")}')
+              .join(',');
+          if (_lastReminderFingerprint != fingerprint) {
+            _lastReminderFingerprint = fingerprint;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              NotificationService().syncMedicineReminders(
+                scopeKey: 'patient:$_currentUserId',
+                medicines: todayMeds,
+                titlePrefix: 'Medicine',
+              );
+            });
+          }
 
           if (todayMeds.isEmpty) {
             return _buildEmptyState();
@@ -230,29 +241,17 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
               ),
             ),
           ),
-          if (log == null) ...[
-            Row(
-              children: [
-                _CompactActionButton(
-                  icon: Icons.check_rounded,
-                  color: Colors.green,
-                  onTap: () => _markAdherence(medicineId, timing, true),
-                ),
-                const SizedBox(width: 10),
-                _CompactActionButton(
-                  icon: Icons.close_rounded,
-                  color: Colors.redAccent,
-                  onTap: () => _markAdherence(medicineId, timing, false),
-                ),
-              ],
-            ),
-          ] else ...[
-            StatusPill(
-              label: isTaken ? 'Taken' : 'Missed',
-              icon: isTaken ? Icons.check_circle_rounded : Icons.cancel_rounded,
-              baseColor: isTaken ? Colors.green : Colors.redAccent,
-            ),
-          ]
+          StatusPill(
+            label: log == null
+                ? 'Pending'
+                : (isTaken ? 'Taken' : 'Missed'),
+            icon: log == null
+                ? Icons.schedule_rounded
+                : (isTaken ? Icons.check_circle_rounded : Icons.cancel_rounded),
+            baseColor: log == null
+                ? AppColors.warning
+                : (isTaken ? Colors.green : Colors.redAccent),
+          ),
         ],
       ),
     );
