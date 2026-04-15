@@ -211,7 +211,6 @@ class _PatientMedicinesView extends StatelessWidget {
                         return ListView(
                           padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
                           children: [
-                            _AdherenceHeader(rate: adherenceRate),
                             const SizedBox(height: 40),
                             const _EmptyMedState(),
                           ],
@@ -222,7 +221,7 @@ class _PatientMedicinesView extends StatelessWidget {
                         padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
                         itemCount: meds.length + 1, // +1 for the header
                         itemBuilder: (_, i) {
-                          if (i == 0) return _AdherenceHeader(rate: adherenceRate);
+                          if (i == 0) return const SizedBox.shrink();
 
                           final med = meds[i - 1];
                           final todayLogs = logs.where((l) {
@@ -271,70 +270,7 @@ class _PatientMedicinesView extends StatelessWidget {
   }
 }
 
-// ─── Adherence Header Widget ─────────────────────────────────────────────────
-
-class _AdherenceHeader extends StatelessWidget {
-  final double rate;
-  const _AdherenceHeader({required this.rate});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 24, top: 10),
-      child: GlassCard(
-        padding: const EdgeInsets.all(24),
-        borderRadius: 24,
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Adherence Rate',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${(rate * 100).toInt()}%',
-                    style: const TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w900,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                SizedBox(
-                  width: 70,
-                  height: 70,
-                  child: CircularProgressIndicator(
-                    value: rate,
-                    strokeWidth: 10,
-                    backgroundColor: AppColors.primary.withOpacity(0.1),
-                    valueColor:
-                        const AlwaysStoppedAnimation<Color>(AppColors.primary),
-                    strokeCap: StrokeCap.round,
-                  ),
-                ),
-                const Icon(Icons.trending_up_rounded,
-                    color: AppColors.primary, size: 24),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+// Adherence Header removed
 
 // ─── Empty State Widget ──────────────────────────────────────────────────────
 

@@ -4,16 +4,18 @@ import '../models/patient_log_model.dart';
 class PatientLogService {
   final _db = FirebaseFirestore.instance;
 
-  /// Stream of patient logs ordered by timestamp
   Stream<List<PatientLogModel>> getLogsStream(String patientId) {
     return _db
         .collection('patient_logs')
         .where('patientId', isEqualTo: patientId)
-        .orderBy('timestamp', descending: true)
         .snapshots()
-        .map((snap) => snap.docs
-            .map((doc) => PatientLogModel.fromMap(doc.data(), doc.id))
-            .toList());
+        .map((snap) {
+          final list = snap.docs
+              .map((doc) => PatientLogModel.fromMap(doc.data(), doc.id))
+              .toList();
+          list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+          return list;
+        });
   }
 
   /// Add a new patient log

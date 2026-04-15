@@ -24,7 +24,8 @@
 .pub/
 build/
 coverage/
-
+mediassure-1/
+mediassure/
 # ------------------------------
 # Platform Generated Files
 # ------------------------------

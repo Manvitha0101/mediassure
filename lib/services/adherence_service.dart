@@ -18,15 +18,16 @@ class AdherenceService {
     return _db
         .collection(_colAdherenceLogs)
         .where('patientId', isEqualTo: patientId)
-        .orderBy('timestamp', descending: true)
         .snapshots()
         .map((snap) {
-          // Avoid composite-index requirement by filtering client-side.
+          // Avoid composite-index requirement by sorting client-side.
           final cutoff = DateTime.now().subtract(const Duration(days: 30));
           final all = snap.docs
               .map((doc) => AdherenceLogModel.fromMap(doc.data(), doc.id))
+              .where((l) => l.timestamp.isAfter(cutoff))
               .toList();
-          return all.where((l) => l.timestamp.isAfter(cutoff)).toList();
+          all.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+          return all;
         });
   }
 
@@ -37,16 +38,15 @@ class AdherenceService {
     return _db
         .collection(_colAdherenceLogs)
         .where('patientId', isEqualTo: patientId)
-        .orderBy('timestamp', descending: true)
         .snapshots()
         .map((snap) {
           // Avoid composite-index requirement by filtering client-side.
           final all = snap.docs
               .map((doc) => AdherenceLogModel.fromMap(doc.data(), doc.id))
-              .toList();
-          return all
               .where((l) => !l.timestamp.isBefore(start) && l.timestamp.isBefore(end))
               .toList();
+          all.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+          return all;
         });
   }
 

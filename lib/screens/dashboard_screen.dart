@@ -5,9 +5,7 @@ import 'app_theme.dart';
 // LoginScreen import removed — navigation handled by AuthWrapper.
 import '../widgets/dashboard/header.dart';
 import '../widgets/dashboard/calendar.dart';
-import '../widgets/dashboard/progress_card.dart';
 import '../widgets/dashboard/action_grid.dart';
-import '../widgets/dashboard/caretaker_list.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -45,20 +43,10 @@ class DashboardScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 28),
 
-                  // ── Progress ─────────────────────────────────────────────
-                  const ProgressCard(),
-                  const SizedBox(height: 28),
-
                   // ── Quick Actions ─────────────────────────────────────────
                   _SectionLabel('Quick Actions'),
                   const SizedBox(height: 12),
                   ActionGrid(patientId: user?.uid ?? ''),
-                  const SizedBox(height: 28),
-
-                  // ── Caretakers ────────────────────────────────────────────
-                  _SectionLabel('Caretakers'),
-                  const SizedBox(height: 12),
-                  const CaretakerList(),
                   const SizedBox(height: 36),
                 ],
               ),

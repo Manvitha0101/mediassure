@@ -21,7 +21,6 @@ class _MainPatientScreenState extends State<MainPatientScreen> {
     PatientDashboardScreen(),
     PatientMedicationsScreen(),
     PatientHistoryScreen(),
-    PatientNotificationsScreen(),
     PatientProfileScreen(),
   ];
 
@@ -67,11 +66,6 @@ class _MainPatientScreenState extends State<MainPatientScreen> {
                 icon: Icon(Icons.history_rounded),
                 selectedIcon: Icon(Icons.history_rounded, color: Colors.white),
                 label: 'History',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.notifications_none_rounded),
-                selectedIcon: Icon(Icons.notifications_rounded, color: Colors.white),
-                label: 'Alerts',
               ),
               NavigationDestination(
                 icon: Icon(Icons.person_outline_rounded),

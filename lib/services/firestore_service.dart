@@ -30,11 +30,14 @@ class FirestoreService {
     return _db
         .collection(_colAdherenceLogs)
         .where('patientId', isEqualTo: patientId)
-        .orderBy('timestamp', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => AdherenceLogModel.fromMap(doc.data(), doc.id))
-            .toList());
+        .map((snapshot) {
+          final list = snapshot.docs
+              .map((doc) => AdherenceLogModel.fromMap(doc.data(), doc.id))
+              .toList();
+          list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+          return list;
+        });
   }
 
   // Add an adherence log
@@ -68,10 +71,13 @@ class FirestoreService {
     return _db
         .collection('notifications')
         .where('userId', isEqualTo: userId)
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => AppNotificationModel.fromMap(doc.data(), doc.id))
-            .toList());
+        .map((snapshot) {
+          final list = snapshot.docs
+              .map((doc) => AppNotificationModel.fromMap(doc.data(), doc.id))
+              .toList();
+          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return list;
+        });
   }
 }
