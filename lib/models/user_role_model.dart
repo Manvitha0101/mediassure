@@ -3,7 +3,7 @@
 enum UserRole { patient, caretaker, doctor }
 
 UserRole _roleFromString(String value) {
-  switch (value) {
+  switch (value.toLowerCase().trim()) {
     case 'doctor':    return UserRole.doctor;
     case 'caretaker': return UserRole.caretaker;
     default:          return UserRole.patient;

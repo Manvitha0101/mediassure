@@ -12,7 +12,7 @@ class ImagePickerService {
   Future<File?> pickFromCamera() async {
     final XFile? picked = await _picker.pickImage(
       source: ImageSource.camera,
-      imageQuality: 80, // compress to reduce upload size
+      imageQuality: 50, // keep medium quality to reduce Firestore payload size
     );
     if (picked == null) return null;
     return File(picked.path);

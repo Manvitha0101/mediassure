@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 
@@ -207,7 +208,8 @@ class _CompactMedicineCard extends StatelessWidget {
     required this.logs,
   });
 
-  void _showPhotoProof(BuildContext context, String url) {
+  void _showPhotoProof(BuildContext context, String imageBase64) {
+    final imageBytes = base64Decode(imageBase64);
     showDialog(
       context: context,
       builder: (_) => Dialog(
@@ -227,15 +229,9 @@ class _CompactMedicineCard extends StatelessWidget {
             ),
             ClipRRect(
               borderRadius: BorderRadius.circular(20),
-              child: Image.network(
-                url,
+              child: Image.memory(
+                imageBytes,
                 fit: BoxFit.contain,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return const Center(
-                    child: CircularProgressIndicator(color: Colors.white),
-                  );
-                },
               ),
             ),
             const SizedBox(height: 16),
@@ -256,9 +252,9 @@ class _CompactMedicineCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isTaken = logs.any((l) => l.taken);
-    final proofUrl = logs
+    final proofBase64 = logs
         .firstWhere(
-          (l) => l.imageUrl != null,
+          (l) => l.imageBase64 != null && l.imageBase64!.isNotEmpty,
           orElse: () => AdherenceLogModel(
             id: '',
             patientId: patientId,
@@ -270,7 +266,7 @@ class _CompactMedicineCard extends StatelessWidget {
             taken: false,
           ),
         )
-        .imageUrl;
+        .imageBase64;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -317,9 +313,15 @@ class _CompactMedicineCard extends StatelessWidget {
                 ],
               ),
             ),
-            if (proofUrl != null)
+            if (proofBase64 != null)
               GestureDetector(
-                onTap: () => _showPhotoProof(context, proofUrl),
+                onTap: () {
+                  try {
+                    _showPhotoProof(context, proofBase64);
+                  } catch (_) {
+                    // Invalid/missing base64 should never crash the UI.
+                  }
+                },
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(

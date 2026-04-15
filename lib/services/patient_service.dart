@@ -2,6 +2,17 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:async';
 import '../models/patient_model.dart';
+import '../models/user_role_model.dart';
+
+class LinkPatientException implements Exception {
+  final String code;
+  final String message;
+
+  const LinkPatientException(this.code, this.message);
+
+  @override
+  String toString() => message;
+}
 
 class PatientService {
   final _db = FirebaseFirestore.instance;
@@ -11,6 +22,11 @@ class PatientService {
   /// Backward-compatible alias (older UI calls).
   Stream<List<PatientModel>> getPatientsByCaretaker(String caretakerId) {
     return getLinkedPatientsStream(caretakerId);
+  }
+
+  /// Role-agnostic linked patients stream for caretaker/doctor.
+  Stream<List<PatientModel>> getLinkedPatientsStreamForUser(String userId) {
+    return getLinkedPatientsStream(userId);
   }
 
   /// Stream of linked patients for caretaker.
@@ -83,53 +99,42 @@ class PatientService {
     await _db.collection(_colPatients).doc(patientId).delete();
   }
 
-  /// Find a patient user by email. Returns their uid if found as a patient role, null otherwise.
+  /// Find a patient user by email. Returns uid if found, null otherwise.
   Future<String?> findPatientByEmail(String email) async {
     final query = await _db
         .collection(_colUsers)
         .where('email', isEqualTo: email.trim().toLowerCase())
-        .where('role', isEqualTo: 'patient')
         .limit(1)
         .get();
     if (query.docs.isEmpty) return null;
+    final data = query.docs.first.data();
+    final role = (data['role'] ?? '').toString().toLowerCase();
+    if (role != UserRole.patient.name) return null;
     return query.docs.first.id;
   }
 
-  /// Link an existing patient (by their uid) to a caretaker using arrayUnion.
+  /// Link patient to caretaker using validated transactional writes.
   Future<void> linkPatientByEmail({
     required String patientUid,
     required String caretakerId,
   }) async {
-    final userDoc = await _db.collection(_colUsers).doc(patientUid).get();
-    final userData = userDoc.data();
+    return _linkPatientToActor(
+      patientUid: patientUid,
+      actorId: caretakerId,
+      actorRole: UserRole.caretaker,
+    );
+  }
 
-    final batch = _db.batch();
-
-    // 1) Ensure patients/{patientUid} exists (for medical data screens)
-    final patientRef = _db.collection(_colPatients).doc(patientUid);
-    batch.set(patientRef, {
-      'patientId': patientUid,
-      // Back-compat: keep caretakerIds on patients doc too.
-      'caretakerIds': FieldValue.arrayUnion([caretakerId]),
-      if (userData != null) ...{
-        if (userData['name'] != null) 'name': userData['name'],
-        if (userData['email'] != null) 'email': userData['email'],
-      },
-    }, SetOptions(merge: true));
-
-    // 2) Update caretaker's users/{caretakerId}.patientIds
-    final caretakerUserRef = _db.collection(_colUsers).doc(caretakerId);
-    batch.set(caretakerUserRef, {
-      'patientIds': FieldValue.arrayUnion([patientUid]),
-    }, SetOptions(merge: true));
-
-    // 3) Update patient's users/{patientUid}.caretakerIds (rules source of truth)
-    final patientUserRef = _db.collection(_colUsers).doc(patientUid);
-    batch.set(patientUserRef, {
-      'caretakerIds': FieldValue.arrayUnion([caretakerId]),
-    }, SetOptions(merge: true));
-
-    await batch.commit();
+  /// Link patient to doctor using validated transactional writes.
+  Future<void> linkPatientToDoctor({
+    required String patientUid,
+    required String doctorId,
+  }) async {
+    return _linkPatientToActor(
+      patientUid: patientUid,
+      actorId: doctorId,
+      actorRole: UserRole.doctor,
+    );
   }
 
   /// Link a patient to a caretaker (legacy method kept for compatibility)
@@ -137,10 +142,7 @@ class PatientService {
     required String patientId,
     required String caretakerId,
   }) async {
-    await _db.collection(_colPatients).doc(patientId).set({
-      'patientId': patientId,
-      'caretakerIds': FieldValue.arrayUnion([caretakerId]),
-    }, SetOptions(merge: true));
+    await linkPatientByEmail(patientUid: patientId, caretakerId: caretakerId);
   }
 
   /// Returns true iff `caretakerId` is linked to `patientId` via patients/{patientId}.caretakerIds.
@@ -154,5 +156,106 @@ class PatientService {
     final data = doc.data() as Map<String, dynamic>;
     final ids = List<String>.from(data['caretakerIds'] ?? const []);
     return ids.contains(caretakerId);
+  }
+
+  Future<void> _linkPatientToActor({
+    required String patientUid,
+    required String actorId,
+    required UserRole actorRole,
+  }) async {
+    if (actorId.isEmpty) {
+      throw const LinkPatientException(
+        'not_authenticated',
+        'You must be logged in to link a patient.',
+      );
+    }
+
+    if (actorRole != UserRole.caretaker && actorRole != UserRole.doctor) {
+      throw const LinkPatientException(
+        'invalid_actor_role',
+        'Only caretaker or doctor can link a patient.',
+      );
+    }
+
+    final patientRef = _db.collection(_colUsers).doc(patientUid);
+    final actorRef = _db.collection(_colUsers).doc(actorId);
+    final patientProfileRef = _db.collection(_colPatients).doc(patientUid);
+
+    await _db.runTransaction((tx) async {
+      final patientUserSnap = await tx.get(patientRef);
+      final actorUserSnap = await tx.get(actorRef);
+      final patientProfileSnap = await tx.get(patientProfileRef);
+
+      if (!patientUserSnap.exists || patientUserSnap.data() == null) {
+        throw const LinkPatientException(
+          'user_not_found',
+          'No user found for the selected patient.',
+        );
+      }
+
+      if (!actorUserSnap.exists || actorUserSnap.data() == null) {
+        throw const LinkPatientException(
+          'actor_not_found',
+          'Current user record was not found.',
+        );
+      }
+
+      final patientUser = patientUserSnap.data()!;
+      final actorUser = actorUserSnap.data()!;
+      final targetRole = (patientUser['role'] ?? '').toString().toLowerCase();
+      if (targetRole != UserRole.patient.name) {
+        throw const LinkPatientException(
+          'target_not_patient',
+          'This user is not registered as a patient.',
+        );
+      }
+
+      final currentActorRole = (actorUser['role'] ?? '').toString().toLowerCase();
+      if (currentActorRole != actorRole.name) {
+        throw LinkPatientException(
+          'actor_role_mismatch',
+          'Only ${actorRole.name} accounts can perform this link.',
+        );
+      }
+
+      final actorPatientIds = List<String>.from(actorUser['patientIds'] ?? const []);
+      final patientCaretakerIds =
+          List<String>.from(patientUser['caretakerIds'] ?? const []);
+      final patientDoctorIds = List<String>.from(patientUser['doctorIds'] ?? const []);
+
+      final alreadyLinked = actorRole == UserRole.caretaker
+          ? patientCaretakerIds.contains(actorId)
+          : patientDoctorIds.contains(actorId);
+
+      if (alreadyLinked || actorPatientIds.contains(patientUid)) {
+        throw const LinkPatientException(
+          'already_linked',
+          'This patient is already linked.',
+        );
+      }
+
+      // users/{actor}.patientIds supports realtime linked-patient list for
+      // both caretaker and doctor tabs.
+      tx.set(actorRef, {
+        'patientIds': FieldValue.arrayUnion([patientUid]),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      final linkedKey = actorRole == UserRole.caretaker ? 'caretakerIds' : 'doctorIds';
+      tx.set(patientRef, {
+        linkedKey: FieldValue.arrayUnion([actorId]),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      final patientProfileData = patientProfileSnap.data();
+      tx.set(patientProfileRef, {
+        'patientId': patientUid,
+        linkedKey: FieldValue.arrayUnion([actorId]),
+        if (patientProfileData == null) 'createdAt': FieldValue.serverTimestamp(),
+        if (patientUser['name'] != null) 'name': patientUser['name'],
+        if (patientUser['email'] != null) 'email': patientUser['email'],
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    });
   }
 }

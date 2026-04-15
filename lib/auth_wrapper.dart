@@ -22,6 +22,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:mediassure/screens/login_screen.dart';
 import 'package:mediassure/screens/patient/main_patient_screen.dart';
 import 'package:mediassure/screens/caretaker/caretaker_main_screen.dart';
+import 'package:mediassure/screens/doctor_dashboard.dart';
 import 'package:mediassure/screens/profile_completion_screen.dart';
 import 'package:mediassure/models/user_role_model.dart';
 
@@ -65,6 +66,7 @@ class AuthWrapper extends StatelessWidget {
                 final role = userModel.role;
                 if (role == UserRole.caretaker) return const CaretakerMainScreen();
                 if (role == UserRole.patient) return const MainPatientScreen();
+                if (role == UserRole.doctor) return const DoctorDashboard();
               }
               
               // default fallback for unknown role or error

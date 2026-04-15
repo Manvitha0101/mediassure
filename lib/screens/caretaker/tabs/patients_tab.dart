@@ -127,6 +127,11 @@ class _CaretakerPatientsTabState extends State<CaretakerPatientsTab> {
                             ),
                           );
                         }
+                      } on LinkPatientException catch (e) {
+                        setDlg(() {
+                          isLoading = false;
+                          errorText = e.message;
+                        });
                       } catch (e) {
                         setDlg(() {
                           isLoading = false;

@@ -47,7 +47,7 @@ class FirestoreService {
     required String scheduledTime,
     required bool taken,
     Map<String, double>? location,
-    String? imageUrl,
+    String? imageBase64,
     String? caretakerId,
     String? caretakerName,
   }) async {
@@ -60,7 +60,7 @@ class FirestoreService {
       'taken': taken,
       'timestamp': FieldValue.serverTimestamp(),
       if (location != null) 'location': location,
-      if (imageUrl != null) 'imageUrl': imageUrl,
+      if (imageBase64 != null) 'imageBase64': imageBase64,
     });
   }
 

@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'dart:convert';
 
 import '../models/adherence_log_model.dart';
 import 'image_picker_service.dart';
@@ -7,7 +7,6 @@ import 'patient_service.dart';
 
 class AdherenceService {
   final _db = FirebaseFirestore.instance;
-  final _storage = FirebaseStorage.instance;
   final _imagePicker = ImagePickerService();
   final _patientService = PatientService();
   static const String _colAdherenceLogs = 'adherenceLogs';
@@ -58,8 +57,12 @@ class AdherenceService {
     String? medicineName,
     String? caretakerId,
     String? caretakerName,
-    String? imageUrl,
+    String? imageBase64,
   }) async {
+    if (taken && (imageBase64 == null || imageBase64.isEmpty)) {
+      throw Exception('Proof image is required to mark as taken.');
+    }
+
     final log = AdherenceLogModel(
       id: '',
       patientId: patientId,
@@ -69,7 +72,7 @@ class AdherenceService {
       scheduledTime: scheduledTime,
       timestamp: DateTime.now(),
       taken: taken,
-      imageUrl: imageUrl,
+      imageBase64: imageBase64,
     );
 
     await _db.collection(_colAdherenceLogs).add(log.toMap());
@@ -99,9 +102,8 @@ class AdherenceService {
     }
   }
 
-  /// Caretaker-only: capture a proof photo, upload to Storage, then write `adherenceLogs`.
-  ///
-  /// Storage path: `adherence_proofs/{patientId}/{medicineId_timestamp}.jpg`
+  /// Caretaker-only: capture proof photo, convert to Base64, then write
+  /// `adherenceLogs`.
   Future<void> markTakenWithCamera({
     required String patientId,
     required String medicineId,
@@ -123,24 +125,8 @@ class AdherenceService {
       throw Exception('Image is required to mark as taken.');
     }
 
-    final ts = DateTime.now().millisecondsSinceEpoch;
-    final objectPath = 'adherence_proofs/$patientId/${medicineId}_$ts.jpg';
-    final ref = _storage.ref().child(objectPath);
-
-    await ref.putFile(
-      file,
-      SettableMetadata(
-        contentType: 'image/jpeg',
-        customMetadata: {
-          'patientId': patientId,
-          'medicineId': medicineId,
-          'caretakerId': caretakerId,
-          'scheduledTime': scheduledTime,
-        },
-      ),
-    );
-
-    final downloadUrl = await ref.getDownloadURL();
+    final bytes = await file.readAsBytes();
+    final base64Image = base64Encode(bytes);
 
     await logAdherenceStrict(
       patientId: patientId,
@@ -150,7 +136,7 @@ class AdherenceService {
       caretakerName: caretakerName,
       scheduledTime: scheduledTime,
       taken: true,
-      imageUrl: downloadUrl,
+      imageBase64: base64Image,
     );
   }
 }
