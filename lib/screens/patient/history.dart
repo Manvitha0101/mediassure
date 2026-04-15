@@ -90,10 +90,9 @@ class _PatientHistoryScreenState extends State<PatientHistoryScreen> {
 
               return ListView.builder(
                 padding: const EdgeInsets.fromLTRB(20, 10, 20, 100),
-                itemCount: logs.length + 2,
+                itemCount: logs.length + 1,
                 itemBuilder: (context, index) {
-                  if (index == 0) return _buildAdherenceGraph(logs);
-                  if (index == 1) {
+                  if (index == 0) {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -115,7 +114,7 @@ class _PatientHistoryScreenState extends State<PatientHistoryScreen> {
                     );
                   }
 
-                  final log = logs[index - 2];
+                  final log = logs[index - 1];
                   // Resolve the name (or fallback to Unknown Medicine if it was deleted)
                   final medName = medicineNameMap[log.medicineId] ?? 'Unknown Medicine';
 
@@ -126,91 +125,6 @@ class _PatientHistoryScreenState extends State<PatientHistoryScreen> {
           );
         },
       ),
-    );
-  }
-
-  Widget _buildAdherenceGraph(List<AdherenceLogModel> logs) {
-    final now = DateTime.now();
-    List<BarChartGroupData> barGroups = [];
-    
-    for (int i = 6; i >= 0; i--) {
-      final date = now.subtract(Duration(days: i));
-      
-      final dayLogs = logs.where((l) => _isSameDay(l.timestamp, date)).toList();
-      final takenCount = dayLogs.where((l) => l.taken == true).length;
-      final missedCount = dayLogs.where((l) => l.taken == false).length;
-      final total = takenCount + missedCount;
-      
-      double percentage = 0;
-      if (total > 0) percentage = (takenCount / total) * 100;
-
-      barGroups.add(
-        BarChartGroupData(
-          x: 6 - i,
-          barRods: [
-            BarChartRodData(
-              toY: percentage > 0 ? percentage : 2.0,
-              color: percentage >= 80 ? Colors.teal : (percentage > 0 ? AppColors.accent : AppColors.surface),
-              width: 14,
-              borderRadius: BorderRadius.circular(4),
-              backDrawRodData: BackgroundBarChartRodData(
-                show: true,
-                toY: 100,
-                color: Colors.white.withOpacity(0.5),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "Consistency",
-          style: TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
-        GlassCard(
-          padding: const EdgeInsets.all(16),
-          child: SizedBox(
-            height: 180,
-            child: BarChart(
-              BarChartData(
-                alignment: BarChartAlignment.spaceEvenly,
-                maxY: 100,
-                barTouchData: BarTouchData(enabled: false),
-                titlesData: FlTitlesData(
-                  show: true,
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      getTitlesWidget: (value, meta) {
-                        final tDate = now.subtract(Duration(days: 6 - value.toInt()));
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 8.0),
-                          child: Text(
-                            DateFormat('E').format(tDate)[0],
-                            style: TextStyle(color: AppColors.textSecondary.withOpacity(0.8), fontSize: 12),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                ),
-                gridData: const FlGridData(show: false),
-                borderData: FlBorderData(show: false),
-                barGroups: barGroups,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 24),
-      ],
     );
   }
 

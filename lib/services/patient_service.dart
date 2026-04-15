@@ -184,7 +184,6 @@ class PatientService {
     await _db.runTransaction((tx) async {
       final patientUserSnap = await tx.get(patientRef);
       final actorUserSnap = await tx.get(actorRef);
-      final patientProfileSnap = await tx.get(patientProfileRef);
 
       if (!patientUserSnap.exists || patientUserSnap.data() == null) {
         throw const LinkPatientException(
@@ -207,6 +206,14 @@ class PatientService {
         throw const LinkPatientException(
           'target_not_patient',
           'This user is not registered as a patient.',
+        );
+      }
+      
+      final profileCompleted = patientUser['profileCompleted'] == true;
+      if (!profileCompleted) {
+        throw const LinkPatientException(
+          'profile_incomplete',
+          'This patient has not completed their profile setup. Ask them to login and complete it first.',
         );
       }
 
@@ -244,14 +251,13 @@ class PatientService {
       final linkedKey = actorRole == UserRole.caretaker ? 'caretakerIds' : 'doctorIds';
       tx.set(patientRef, {
         linkedKey: FieldValue.arrayUnion([actorId]),
-        'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-      final patientProfileData = patientProfileSnap.data();
+      // We ONLY update the profile record; we cannot read it beforehand due to rules.
+      // Since profileCompleted is true, we know the document exists.
       tx.set(patientProfileRef, {
         'patientId': patientUid,
         linkedKey: FieldValue.arrayUnion([actorId]),
-        if (patientProfileData == null) 'createdAt': FieldValue.serverTimestamp(),
         if (patientUser['name'] != null) 'name': patientUser['name'],
         if (patientUser['email'] != null) 'email': patientUser['email'],
         'updatedAt': FieldValue.serverTimestamp(),

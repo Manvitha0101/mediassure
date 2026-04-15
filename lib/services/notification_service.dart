@@ -45,6 +45,15 @@ class NotificationService {
       sound: true,
     );
 
+    // Explicitly request Android 13+ Local Notification and Android 12+ Exact Alarm permissions
+    final androidImplementation =
+        _localNotificationsPlugin.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+    if (androidImplementation != null) {
+      await androidImplementation.requestNotificationsPermission();
+      await androidImplementation.requestExactAlarmsPermission();
+    }
+
     if (settings.authorizationStatus == AuthorizationStatus.authorized) {
       print('User granted notification permissions');
     }

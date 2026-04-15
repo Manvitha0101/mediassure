@@ -4,20 +4,20 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  static const background   = Color(0xFFFCF9FE); // Very light pinkish-white
+  static const background   = Color(0xFFE8D4C8); // Warm peach beige
   static const surface      = Colors.white;
-  static const primary      = Color(0xFF7A5BF3); // Indigo / Purple
-  static const primaryLight = Color(0xFFF1EEFC);
-  static const accent       = Color(0xFFFF5E89); // Pink
-  static const accentLight  = Color(0xFFFFE8EE);
-  static const warning      = Color(0xFFFF9F43);
-  static const warningLight = Color(0xFFFFF3E4);
-  static const danger       = Color(0xFFFF6B6B);
-  static const dangerLight  = Color(0xFFFFEEEE);
-  static const textPrimary  = Color(0xFF1E1E2D);
-  static const textSecondary = Color(0xFF8A8A9E);
-  static const cardShadow   = Color(0x0C000000);
-  static const divider      = Color(0xFFF4F4F8);
+  static const primary      = Color(0xFF8B6BCC); // Middle violet
+  static const primaryLight = Color(0xFFE0D8ED);
+  static const accent       = Color(0xFFAFA0E0); // Lighter violet accent
+  static const accentLight  = Color(0xFFF3F0FA);
+  static const warning      = Color(0xFFFFB366);
+  static const warningLight = Color(0xFFFFF6ED);
+  static const danger       = Color(0xFFFF8585);
+  static const dangerLight  = Color(0xFFFFF0F0);
+  static const textPrimary  = Color(0xFF2C2C3D); // Slightly softer dark
+  static const textSecondary = Color(0xFF9191A3);
+  static const cardShadow   = Color(0x0A000000);
+  static const divider      = Color(0xFFF1EFEA); // Warm divider
 }
 
 // ─── Text Styles ───────────────────────────────────────────────────────────────
@@ -77,8 +77,8 @@ class AppDecorations {
         boxShadow: const [
           BoxShadow(
             color: AppColors.cardShadow,
-            blurRadius: 10,
-            offset: Offset(0, 3),
+            blurRadius: 12,
+            offset: Offset(0, 4),
           ),
         ],
       );
@@ -105,7 +105,7 @@ class AppTheme {
           background: AppColors.background,
           surface: AppColors.surface,
         ),
-        fontFamily: 'Nunito',
+        fontFamily: 'Poppins',
         appBarTheme: const AppBarTheme(
           backgroundColor: AppColors.background,
           elevation: 0,

@@ -11,35 +11,31 @@ class GlassBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // The core background image
+        // Clean beige gradient background
         Positioned.fill(
-          child: Image.asset(
-            'assets/wellness_bg.png', // The generated premium image
-            fit: BoxFit.cover,
-          ),
-        ),
-        // A soft blur layer
-        Positioned.fill(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
-            child: Container(
-              color: Colors.white.withOpacity(0.05),
+          child: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFFF2E6DF), // Slightly lighter peach beige
+                  AppColors.background, // Peach beige
+                ],
+              ),
             ),
           ),
         ),
-        // A soft gradient overlay for depth and readability
-        Positioned.fill(
+        // A subtle decorative blob could go here, but keeping it neat
+        Positioned(
+          top: -100,
+          right: -50,
           child: Container(
+            width: 300,
+            height: 300,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.white.withOpacity(0.1),
-                  AppColors.background.withOpacity(0.4),
-                  AppColors.primaryLight.withOpacity(0.2),
-                ],
-              ),
+              shape: BoxShape.circle,
+              color: AppColors.primaryLight.withOpacity(0.3),
             ),
           ),
         ),
