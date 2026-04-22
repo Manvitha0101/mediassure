@@ -33,7 +33,7 @@ class FirestoreService {
         .snapshots()
         .map((snapshot) {
           final list = snapshot.docs
-              .map((doc) => AdherenceLogModel.fromMap(doc.data(), doc.id))
+              .map((doc) => AdherenceLogModel.fromMap(doc.data(), doc.id, includeImage: false))
               .toList();
           list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
           return list;
@@ -47,7 +47,6 @@ class FirestoreService {
     required String scheduledTime,
     required bool taken,
     Map<String, double>? location,
-    String? imageBase64,
     String? caretakerId,
     String? caretakerName,
   }) async {
@@ -60,7 +59,6 @@ class FirestoreService {
       'taken': taken,
       'timestamp': FieldValue.serverTimestamp(),
       if (location != null) 'location': location,
-      if (imageBase64 != null) 'imageBase64': imageBase64,
     });
   }
 

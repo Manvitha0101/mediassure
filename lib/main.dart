@@ -7,6 +7,7 @@ import 'firebase_options.dart';
 import 'screens/app_theme.dart';
 import 'auth_wrapper.dart';
 import 'services/notification_service.dart';
+import 'services/adherence_service.dart';
 import 'debug/debug_logger.dart';
 import 'debug/debug_nav_observer.dart';
 
@@ -34,7 +35,11 @@ options: DefaultFirebaseOptions.currentPlatform,
 );
 
 // Initialize local notifications
-await NotificationService().initialize();
+await NotificationService.instance.initialize();
+await NotificationService.instance.scheduleAllRemindersForUser();
+
+// Recover lost state if Android killed the app during camera capture
+await AdherenceService().recoverLostCameraData();
 
 // Lock orientation
 SystemChrome.setPreferredOrientations([

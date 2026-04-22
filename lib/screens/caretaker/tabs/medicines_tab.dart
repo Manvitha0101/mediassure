@@ -4,7 +4,6 @@ import '../../../models/medicine_model.dart';
 import '../../../models/adherence_log_model.dart';
 import '../../../services/medicine_service.dart';
 import '../../../services/adherence_service.dart';
-import '../../../services/notification_service.dart';
 import '../../../widgets/glass_components.dart';
 import '../../app_theme.dart';
 import '../../add_medicine_screen.dart';
@@ -188,15 +187,6 @@ class _PatientMedicinesView extends StatelessWidget {
                     return Center(child: Text('Error: ${medSnap.error}'));
                   }
                   final meds = medSnap.data ?? [];
-
-                  // Local reminders for the caretaker device for this patient scope.
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    NotificationService().syncMedicineReminders(
-                      scopeKey: 'caretaker:$caretakerId|patient:$patientId',
-                      medicines: meds,
-                      titlePrefix: 'Patient medicine',
-                    );
-                  });
 
                   return StreamBuilder<List<AdherenceLogModel>>(
                     stream: adhService.getRecentLogs(patientId),
@@ -409,6 +399,10 @@ const _MedicineCard({
                     color: Colors.teal, size: 28),
                 tooltip: 'Mark as Taken',
                 onPressed: () async {
+                  // Capture messenger BEFORE async gap — the widget's
+                  // context becomes unmounted when StreamBuilder rebuilds
+                  // while the camera is open, silently swallowing errors.
+                  final messenger = ScaffoldMessenger.of(context);
                   try {
                     await adhService.markTakenWithCamera(
                       patientId: patientId,
@@ -418,12 +412,20 @@ const _MedicineCard({
                       caretakerName: caretakerModel.name,
                       scheduledTime: med.timings.first,
                     );
+                    messenger.clearSnackBars();
+                    messenger.showSnackBar(SnackBar(
+                      content: Text('${med.name} marked as taken ✓'),
+                      backgroundColor: Colors.teal,
+                      behavior: SnackBarBehavior.floating,
+                    ));
                   } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).clearSnackBars();
-                      ScaffoldMessenger.of(context)
-                          .showSnackBar(SnackBar(content: Text('Error: $e')));
-                    }
+                    debugPrint('Mark as taken failed for ${med.name}: $e');
+                    messenger.clearSnackBars();
+                    messenger.showSnackBar(SnackBar(
+                      content: Text('$e'),
+                      backgroundColor: Colors.redAccent,
+                      behavior: SnackBarBehavior.floating,
+                    ));
                   }
                 },
               ),

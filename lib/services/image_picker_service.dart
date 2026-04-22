@@ -13,6 +13,8 @@ class ImagePickerService {
     final XFile? picked = await _picker.pickImage(
       source: ImageSource.camera,
       imageQuality: 50, // keep medium quality to reduce Firestore payload size
+      maxWidth: 600,     // constrain dimensions to be even more memory safe
+      maxHeight: 600,    // 
     );
     if (picked == null) return null;
     return File(picked.path);
@@ -26,5 +28,10 @@ class ImagePickerService {
     );
     if (picked == null) return null;
     return File(picked.path);
+  }
+
+  // Retrieve lost data (for Android Activity destruction)
+  Future<LostDataResponse> retrieveLostData() async {
+    return await _picker.retrieveLostData();
   }
 }

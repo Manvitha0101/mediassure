@@ -6,7 +6,6 @@ import '../../models/adherence_log_model.dart';
 import '../../widgets/glass_components.dart';
 import '../app_theme.dart';
 import '../chat_screen.dart';
-import '../../services/notification_service.dart';
 
 class PatientDashboardScreen extends StatefulWidget {
   const PatientDashboardScreen({super.key});
@@ -18,7 +17,6 @@ class PatientDashboardScreen extends StatefulWidget {
 class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   final FirestoreService _firestoreService = FirestoreService();
   final String _currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
-  String? _lastReminderFingerprint;
 
   bool _isToday(DateTime date) {
     final now = DateTime.now();
@@ -101,20 +99,6 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
           final todayMeds = allMeds.where((m) {
             return m.isActive && _isDateInRange(DateTime.now(), m.startDate, m.endDate);
           }).toList();
-
-          final fingerprint = todayMeds
-              .map((m) => '${m.id}:${m.timings.join("|")}')
-              .join(',');
-          if (_lastReminderFingerprint != fingerprint) {
-            _lastReminderFingerprint = fingerprint;
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              NotificationService().syncMedicineReminders(
-                scopeKey: 'patient:$_currentUserId',
-                medicines: todayMeds,
-                titlePrefix: 'Medicine',
-              );
-            });
-          }
 
           if (todayMeds.isEmpty) {
             return _buildEmptyState();
