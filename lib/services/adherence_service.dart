@@ -17,6 +17,21 @@ class AdherenceService {
   static const String _colAdherenceLogs = 'adherenceLogs';
   static const String _colPatientLogs = 'patient_logs';
 
+  /// Stream of all adherence logs for a given patient
+  Stream<List<AdherenceLogModel>> getLogsForPatient(String patientId) {
+    return _db
+        .collection(_colAdherenceLogs)
+        .where('patientId', isEqualTo: patientId)
+        .snapshots()
+        .map((snap) {
+          final all = snap.docs
+              .map((doc) => AdherenceLogModel.fromMap(doc.data(), doc.id, includeImage: false))
+              .toList();
+          all.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+          return all;
+        });
+  }
+
   /// Stream of recent adherence logs for a given patient (last 30 days)
   Stream<List<AdherenceLogModel>> getRecentLogs(String patientId) {
     return _db

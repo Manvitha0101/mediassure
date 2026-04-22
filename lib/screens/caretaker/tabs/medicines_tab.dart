@@ -13,6 +13,8 @@ import '../../../models/user_role_model.dart';
 import '../../../services/auth_service.dart';
 import '../../../models/patient_log_model.dart';
 import '../../../services/patient_log_service.dart';
+import '../../../services/patient_service.dart';
+import '../add_prescription_screen.dart';
 
 /// Caretaker Medicines tab — shows all patients' medicines and today's adherence.
 /// Receives the patientId to filter medicines for the selected patient.
@@ -86,6 +88,140 @@ class _PatientMedicinesView extends StatelessWidget {
   final String patientId;
   const _PatientMedicinesView({required this.patientId});
 
+  void _showAddDoctorDialog(BuildContext context, String caretakerId) {
+    final emailCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool isLoading = false;
+    String? errorText;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (ctx, setDlg) => AlertDialog(
+          backgroundColor: AppColors.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text(
+            'Link a Doctor',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+              fontSize: 18,
+            ),
+          ),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Enter the email address of a registered doctor.',
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary.withOpacity(0.8)),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: emailCtrl,
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return 'Email is required';
+                    if (!v.contains('@')) return 'Enter a valid email';
+                    return null;
+                  },
+                  style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+                  decoration: InputDecoration(
+                    labelText: 'Doctor Email',
+                    prefixIcon: const Icon(Icons.mail_outline_rounded, color: AppColors.textSecondary, size: 20),
+                    filled: true,
+                    fillColor: AppColors.background,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.divider, width: 1.5),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.primary, width: 1.8),
+                    ),
+                  ),
+                ),
+                if (errorText != null) ...[
+                  const SizedBox(height: 10),
+                  Text(errorText!,
+                      style: const TextStyle(
+                          color: AppColors.danger,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600)),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel',
+                  style: TextStyle(color: AppColors.textSecondary)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: isLoading
+                  ? null
+                  : () async {
+                      if (!formKey.currentState!.validate()) return;
+                      setDlg(() {
+                        isLoading = true;
+                        errorText = null;
+                      });
+                      try {
+                        await PatientService().linkDoctorByEmail(
+                          caretakerId: caretakerId,
+                          patientId: patientId,
+                          doctorEmail: emailCtrl.text.trim(),
+                        );
+
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Text('Doctor linked successfully!'),
+                              backgroundColor: Colors.green.shade600,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10)),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        setDlg(() {
+                          isLoading = false;
+                          errorText = e.toString().replaceAll('Exception: ', '');
+                        });
+                      }
+                    },
+              child: isLoading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : const Text('Link Doctor'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final medService = MedicineService();
@@ -118,6 +254,32 @@ class _PatientMedicinesView extends StatelessWidget {
             backgroundColor: Colors.transparent,
             elevation: 0,
             actions: [
+              IconButton(
+                tooltip: 'Add Prescription',
+                icon: const Icon(Icons.receipt_long_rounded),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => AddPrescriptionScreen(patientId: patientId),
+                    ),
+                  );
+                },
+              ),
+              IconButton(
+                tooltip: 'Add Doctor',
+                icon: const Stack(
+                  children: [
+                    Icon(Icons.person_add_alt_1_rounded),
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Icon(Icons.add_circle, color: AppColors.primary, size: 10),
+                    ),
+                  ],
+                ),
+                onPressed: () => _showAddDoctorDialog(context, caretakerId),
+              ),
               IconButton(
                 tooltip: 'Chat',
                 icon: const Icon(Icons.chat_bubble_outline_rounded),

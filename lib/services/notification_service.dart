@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:flutter_timezone/flutter_timezone.dart';
 
 import '../models/medicine_model.dart';
 
@@ -51,6 +52,13 @@ class NotificationService {
 
     // 0. Timezone data (needed for zonedSchedule)
     tz.initializeTimeZones();
+    try {
+      // getLocalTimezone() returns a TimezoneInfo object in latest versions
+      final currentTimeZone = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(currentTimeZone.identifier));
+    } catch (e) {
+      debugPrint('Could not initialize local timezone: $e');
+    }
 
     // 1. Setup local notifications for foreground display
     const initializationSettingsAndroid =

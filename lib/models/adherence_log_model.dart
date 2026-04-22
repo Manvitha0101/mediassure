@@ -9,6 +9,8 @@ class AdherenceLogModel {
   final String scheduledTime;
   final DateTime timestamp;
   final bool taken;
+  final String? imageUrl;
+  
   AdherenceLogModel({
     required this.id,
     required this.patientId,
@@ -18,6 +20,7 @@ class AdherenceLogModel {
     required this.scheduledTime,
     required this.timestamp,
     required this.taken,
+    this.imageUrl,
   });
 
   factory AdherenceLogModel.fromMap(Map<String, dynamic> data, String id, {bool includeImage = false}) {
@@ -30,6 +33,7 @@ class AdherenceLogModel {
       scheduledTime: data['scheduledTime'] ?? '',
       timestamp: (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
       taken: data['taken'] ?? false,
+      imageUrl: data['imageUrl'],
     );
   }
 
@@ -41,5 +45,6 @@ class AdherenceLogModel {
         'scheduledTime': scheduledTime,
         'timestamp': Timestamp.fromDate(timestamp),
         'taken': taken,
+        if (imageUrl != null) 'imageUrl': imageUrl,
       };
 }

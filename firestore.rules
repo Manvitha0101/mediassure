@@ -21,6 +21,10 @@ service cloud.firestore {
       return role() == 'caretaker';
     }
 
+    function isDoctor() {
+      return role() == 'doctor';
+    }
+
     function affectsOnly(keys) {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
     }
@@ -44,6 +48,14 @@ service cloud.firestore {
       return isCaretaker() && (isLinkedCaretakerViaUsers(patientId) || isLinkedCaretakerViaPatients(patientId));
     }
 
+    function isLinkedDoctor(patientId) {
+      return signedIn()
+        && isDoctor()
+        && exists(/databases/$(database)/documents/patients/$(patientId))
+        && get(/databases/$(database)/documents/patients/$(patientId)).data.doctorIds is list
+        && request.auth.uid in get(/databases/$(database)/documents/patients/$(patientId)).data.doctorIds;
+    }
+
     // ---- users ----
     match /users/{uid} {
       allow read: if signedIn();
@@ -51,27 +63,37 @@ service cloud.firestore {
       // Users can edit their own user doc.
       allow update, delete: if signedIn() && request.auth.uid == uid;
 
-      // Caretakers can link themselves to a patient by adding their uid to /users/{patientUid}.caretakerIds.
-      // This is required for linked-patient authorization across the app.
+      // Caretakers/Doctors can link themselves to a patient.
       allow update: if signedIn()
-        && isCaretaker()
-        && affectsOnly(['caretakerIds'])
-        && request.resource.data.caretakerIds is list
-        && request.auth.uid in request.resource.data.caretakerIds;
+        && (isCaretaker() || isDoctor())
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['caretakerIds', 'doctorIds']);
+
+      // Caretakers can link a doctor to a patient (or doctors can link themselves)
+      allow update: if signedIn()
+        && (isCaretaker() || isDoctor())
+        && request.resource.data.diff(resource.data).affectedKeys().hasAny(['doctorIds', 'patientIds'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['doctorIds', 'patientIds', 'updatedAt']);
     }
 
     // ---- patients ----
     match /patients/{patientId} {
-      allow read: if signedIn() && (request.auth.uid == patientId || isLinkedCaretaker(patientId));
+      allow read: if signedIn() && (request.auth.uid == patientId || isLinkedCaretaker(patientId) || isLinkedDoctor(patientId));
 
       // Patient creates/updates own profile doc.
       allow create, update: if signedIn() && request.auth.uid == patientId;
 
-      // Caretaker can link themselves by adding their uid to caretakerIds.
+      // Caretaker/Doctor can link themselves to a patient.
+      allow update: if signedIn()
+        && (isCaretaker() || isDoctor())
+        && request.resource.data.diff(resource.data).affectedKeys().hasAny(['caretakerIds', 'doctorIds'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['caretakerIds', 'doctorIds', 'name', 'email', 'updatedAt', 'patientId']);
+
+      // Caretaker can link a doctor to their patient
       allow update: if signedIn()
         && isCaretaker()
-        && request.resource.data.caretakerIds is list
-        && request.auth.uid in request.resource.data.caretakerIds;
+        && isLinkedCaretaker(patientId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasAny(['doctorIds'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['doctorIds', 'updatedAt', 'patientId']);
 
       allow delete: if false;
     }
@@ -80,7 +102,8 @@ service cloud.firestore {
     match /medicines/{medicineId} {
       allow read: if signedIn() && (
         (isPatient() && resource.data.patientId == request.auth.uid) ||
-        isLinkedCaretaker(resource.data.patientId)
+        isLinkedCaretaker(resource.data.patientId) ||
+        isLinkedDoctor(resource.data.patientId)
       );
 
       allow create, update, delete: if signedIn()
@@ -93,7 +116,8 @@ service cloud.firestore {
     match /adherenceLogs/{logId} {
       allow read: if signedIn() && (
         (isPatient() && resource.data.patientId == request.auth.uid) ||
-        isLinkedCaretaker(resource.data.patientId)
+        isLinkedCaretaker(resource.data.patientId) ||
+        isLinkedDoctor(resource.data.patientId)
       );
 
       allow create: if signedIn()
@@ -127,10 +151,24 @@ service cloud.firestore {
     match /patient_logs/{logId} {
       allow read: if signedIn() && (
         (isPatient() && resource.data.patientId == request.auth.uid) ||
-        isLinkedCaretaker(resource.data.patientId)
+        isLinkedCaretaker(resource.data.patientId) ||
+        isLinkedDoctor(resource.data.patientId)
       );
       allow create: if signedIn() && isCaretaker() && isLinkedCaretaker(request.resource.data.patientId);
       allow update, delete: if false;
+    }
+
+    // ---- prescriptions ----
+    match /prescriptions/{prescriptionId} {
+      allow read: if signedIn() && (
+        (isPatient() && resource.data.patientId == request.auth.uid) ||
+        isLinkedCaretaker(resource.data.patientId) ||
+        isLinkedDoctor(resource.data.patientId)
+      );
+
+      // Allowing caretakers to create/update prescriptions as per decision
+      allow create, update: if signedIn() && isCaretaker() && isLinkedCaretaker(request.resource.data.patientId);
+      allow delete: if signedIn() && isCaretaker() && isLinkedCaretaker(resource.data.patientId);
     }
   }
 }

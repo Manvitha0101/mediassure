@@ -61,4 +61,11 @@ class LinkedPatient {
     required this.uid,
     required this.name,
   });
+
+  factory LinkedPatient.fromModel(PatientModel model) {
+    return LinkedPatient(
+      uid: model.patientId,
+      name: model.name,
+    );
+  }
 }

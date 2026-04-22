@@ -145,6 +145,83 @@ class PatientService {
     await linkPatientByEmail(patientUid: patientId, caretakerId: caretakerId);
   }
 
+  /// Link a doctor to a patient by the doctor's email.
+  Future<void> linkDoctorByEmail({
+    required String caretakerId,
+    required String patientId,
+    required String doctorEmail,
+  }) async {
+    if (caretakerId.isEmpty) {
+      throw const LinkPatientException(
+        'not_authenticated',
+        'You must be logged in to link a doctor.',
+      );
+    }
+
+    final query = await _db
+        .collection(_colUsers)
+        .where('email', isEqualTo: doctorEmail.trim().toLowerCase())
+        .limit(1)
+        .get();
+
+    if (query.docs.isEmpty) {
+      throw const LinkPatientException(
+        'doctor_not_found',
+        'No doctor found with that email.',
+      );
+    }
+
+    final doctorUserSnap = query.docs.first;
+    final doctorData = doctorUserSnap.data();
+    final doctorUid = doctorUserSnap.id;
+
+    if ((doctorData['role'] ?? '').toString().toLowerCase() != UserRole.doctor.name) {
+      throw const LinkPatientException(
+        'user_not_doctor',
+        'The user with this email is not registered as a doctor.',
+      );
+    }
+
+    final patientRef = _db.collection(_colUsers).doc(patientId);
+    final doctorRef = _db.collection(_colUsers).doc(doctorUid);
+    final patientProfileRef = _db.collection(_colPatients).doc(patientId);
+
+    await _db.runTransaction((tx) async {
+      final pSnap = await tx.get(patientRef);
+      if (!pSnap.exists || pSnap.data() == null) {
+        throw const LinkPatientException(
+          'patient_not_found',
+          'Patient record not found.',
+        );
+      }
+      
+      final pData = pSnap.data()!;
+      final patientDoctorIds = List<String>.from(pData['doctorIds'] ?? const []);
+      
+      if (patientDoctorIds.contains(doctorUid)) {
+        throw const LinkPatientException(
+          'already_linked',
+          'This doctor is already linked to the patient.',
+        );
+      }
+      
+      tx.set(doctorRef, {
+        'patientIds': FieldValue.arrayUnion([patientId]),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      tx.set(patientRef, {
+        'doctorIds': FieldValue.arrayUnion([doctorUid]),
+      }, SetOptions(merge: true));
+
+      tx.set(patientProfileRef, {
+        'patientId': patientId,
+        'doctorIds': FieldValue.arrayUnion([doctorUid]),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    });
+  }
+
   /// Returns true iff `caretakerId` is linked to `patientId` via patients/{patientId}.caretakerIds.
   Future<bool> isCaretakerLinked({
     required String patientId,

@@ -7,14 +7,11 @@ class PrescriptionService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   CollectionReference get _prescriptionCollection {
-    final uid = FirebaseAuth.instance.currentUser!.uid;
-    return _db.collection('users').doc(uid).collection('prescriptions');
+    return _db.collection('prescriptions');
   }
 
   // Record prescription metadata without storage upload
-  Future<void> uploadPrescription(File imageFile, {String? note}) async {
-    final uid = FirebaseAuth.instance.currentUser!.uid;
-
+  Future<void> uploadPrescription(File imageFile, {String? note, String doctorId = '', List<String> medicines = const [], required String patientId}) async {
     if (!imageFile.existsSync()) {
       throw Exception('Prescription image is required');
     }
@@ -22,26 +19,48 @@ class PrescriptionService {
     // Save metadata to Firestore (No Firebase Storage)
     final prescription = Prescription(
       id: '',
-      patientId: uid,
+      patientId: patientId,
+      doctorId: doctorId,
       imageUrl: '', // Zero-cost flow: no cloud storage
       imageCaptured: true,
       uploadedAt: DateTime.now().toIso8601String(),
       note: note,
+      medicines: medicines,
     );
     
     await _prescriptionCollection.add(prescription.toMap());
   }
 
-  // Stream of all prescriptions (newest first)
-  Stream<List<Prescription>> getPrescriptionsStream() {
+  // Stream of prescriptions for a specific patient
+  Stream<List<Prescription>> getPrescriptionsForPatient(String patientId) {
     return _prescriptionCollection
-        .orderBy('uploadedAt', descending: true)
+        .where('patientId', isEqualTo: patientId)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
+      final list = snapshot.docs.map((doc) {
         return Prescription.fromMap(
             doc.id, doc.data() as Map<String, dynamic>);
       }).toList();
+      list.sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
+      return list;
+    });
+  }
+
+  // Stream of prescriptions for a specific doctor and patient
+  Stream<List<Prescription>> getPrescriptionsForDoctorAndPatient(String doctorId, String patientId) {
+    return _prescriptionCollection
+        .where('doctorId', isEqualTo: doctorId)
+        .where('patientId', isEqualTo: patientId)
+        // Removed orderBy to avoid requiring a composite index in Firestore
+        .snapshots()
+        .map((snapshot) {
+      final list = snapshot.docs.map((doc) {
+        return Prescription.fromMap(
+            doc.id, doc.data() as Map<String, dynamic>);
+      }).toList();
+      // Sort locally
+      list.sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
+      return list;
     });
   }
 

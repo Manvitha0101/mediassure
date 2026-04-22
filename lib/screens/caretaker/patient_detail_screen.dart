@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../models/medicine_model.dart';
 import '../../models/patient_model.dart';
 import '../../services/medicine_service.dart';
+import '../../services/patient_service.dart';
 import '../../widgets/glass_components.dart';
 import '../app_theme.dart';
 import '../add_medicine_screen.dart';
@@ -26,11 +28,152 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
   DateTime? _selectedDay;
   final _medService = MedicineService();
   final _adhService = AdherenceService();
+  final _patientService = PatientService();
+  final _caretakerId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
   @override
   void initState() {
     super.initState();
     _selectedDay = _focusedDay;
+  }
+
+  void _showLinkDoctorDialog() {
+    final emailCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool isLoading = false;
+    String? errorText;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setDlg) => AlertDialog(
+          backgroundColor: AppColors.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text(
+            'Link a Doctor',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+              fontSize: 18,
+            ),
+          ),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Enter the email address of a registered doctor.',
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary.withOpacity(0.8)),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: emailCtrl,
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return 'Email is required';
+                    if (!v.contains('@')) return 'Enter a valid email';
+                    return null;
+                  },
+                  style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+                  decoration: InputDecoration(
+                    labelText: 'Doctor Email',
+                    prefixIcon: const Icon(Icons.mail_outline_rounded, color: AppColors.textSecondary, size: 20),
+                    filled: true,
+                    fillColor: AppColors.background,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.divider, width: 1.5),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.primary, width: 1.8),
+                    ),
+                  ),
+                ),
+                if (errorText != null) ...[
+                  const SizedBox(height: 10),
+                  Text(errorText!,
+                      style: const TextStyle(
+                          color: AppColors.danger,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600)),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel',
+                  style: TextStyle(color: AppColors.textSecondary)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: isLoading
+                  ? null
+                  : () async {
+                      if (!formKey.currentState!.validate()) return;
+                      setDlg(() {
+                        isLoading = true;
+                        errorText = null;
+                      });
+                      try {
+                        await _patientService.linkDoctorByEmail(
+                          caretakerId: _caretakerId,
+                          patientId: widget.patient.uid,
+                          doctorEmail: emailCtrl.text.trim(),
+                        );
+
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Text('Doctor linked successfully!'),
+                              backgroundColor: Colors.green.shade600,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10)),
+                            ),
+                          );
+                        }
+                      } on LinkPatientException catch (e) {
+                        setDlg(() {
+                          isLoading = false;
+                          errorText = e.message;
+                        });
+                      } catch (e) {
+                        setDlg(() {
+                          isLoading = false;
+                          errorText = 'Error: $e';
+                        });
+                      }
+                    },
+              child: isLoading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : const Text('Link Doctor'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -41,6 +184,13 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
         title: Text(widget.patient.name),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.person_add_alt_1_rounded),
+            tooltip: 'Add Doctor',
+            onPressed: _showLinkDoctorDialog,
+          ),
+        ],
       ),
       body: GlassBackground(
         child: SafeArea(
@@ -208,8 +358,9 @@ class _CompactMedicineCard extends StatelessWidget {
     required this.logs,
   });
 
-  void _showPhotoProof(BuildContext context, String imageBase64) {
-    final imageBytes = base64Decode(imageBase64);
+  void _showPhotoProof(BuildContext context, String imageUrl) {
+    // Note: To support zero-cost flow or actual URL, we might need a network image or base64 decode if it's still base64 under the hood.
+    // For now we'll assume it might be base64.
     showDialog(
       context: context,
       builder: (_) => Dialog(
@@ -229,9 +380,10 @@ class _CompactMedicineCard extends StatelessWidget {
             ),
             ClipRRect(
               borderRadius: BorderRadius.circular(20),
-              child: Image.memory(
-                imageBytes,
+              child: Image.network(
+                imageUrl,
                 fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.broken_image, color: Colors.white, size: 50)),
               ),
             ),
             const SizedBox(height: 16),
@@ -252,9 +404,9 @@ class _CompactMedicineCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isTaken = logs.any((l) => l.taken);
-    final proofBase64 = logs
+    final proofImageUrl = logs
         .firstWhere(
-          (l) => l.imageBase64 != null && l.imageBase64!.isNotEmpty,
+          (l) => l.imageUrl != null && l.imageUrl!.isNotEmpty,
           orElse: () => AdherenceLogModel(
             id: '',
             patientId: patientId,
@@ -266,7 +418,7 @@ class _CompactMedicineCard extends StatelessWidget {
             taken: false,
           ),
         )
-        .imageBase64;
+        .imageUrl;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -313,13 +465,13 @@ class _CompactMedicineCard extends StatelessWidget {
                 ],
               ),
             ),
-            if (proofBase64 != null)
+            if (proofImageUrl != null)
               GestureDetector(
                 onTap: () {
                   try {
-                    _showPhotoProof(context, proofBase64);
+                    _showPhotoProof(context, proofImageUrl);
                   } catch (_) {
-                    // Invalid/missing base64 should never crash the UI.
+                    // Invalid/missing url should never crash the UI.
                   }
                 },
                 child: Container(
