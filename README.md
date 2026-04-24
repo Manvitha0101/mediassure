@@ -205,7 +205,7 @@ Before you begin, make sure you have the following installed:
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/mediassure.git
+git clone https://github.com/manvitha0101/mediassure.git
 cd mediassure
 ```
 
