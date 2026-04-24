@@ -7,7 +7,6 @@
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-Backend-FFCA28?logo=firebase&logoColor=black)](https://firebase.google.com)
 [![Dart](https://img.shields.io/badge/Dart-3.x-0175C2?logo=dart&logoColor=white)](https://dart.dev)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-1.0.0-blue)](pubspec.yaml)
 
 > **MediAssure** is a cross-platform mobile application built with Flutter that helps patients never miss a dose, enables caretakers to remotely monitor medication adherence, and empowers doctors to manage prescriptions — all in one place.
